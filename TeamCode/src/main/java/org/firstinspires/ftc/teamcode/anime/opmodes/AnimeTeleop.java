@@ -131,6 +131,17 @@ public class AnimeTeleop extends OpMode {
         telemetryM.debug("slow mode:" + this.slowMode);
         telemetryM.debug("slow mode multiplier:" + this.slowModeMultiplier);
         telemetryM.debug("indexer slow mode:" + this.indexerSlow);
+        telemetryM.debug("shooter velocity:" + this.shooter.getVelocity());
+        telemetryM.debug("shooter power:" + this.shooter.getPower());
+        telemetryM.debug("shooter velocity:" + this.shooter.getVelocity());
+        telemetryM.debug("shooter power:" + this.shooter.getPower());
+        telemetryM.debug("shooter power %:" + (this.shooter.getPower() * 100) + "%");
+        telemetryM.debug("shooter velocity (ticks/sec):" + this.shooter.getVelocity());
+        //On GoBilda PPR is 28 and is a quadrature encoder so 28*4 = 112 ticks/revolution
+        double TICKS_PER_REVOLUTION = 112.0;
+        double rpm = (this.shooter.getVelocity() / TICKS_PER_REVOLUTION) * 60;
+        telemetryM.debug("shooter RPM:" + rpm);
+        telemetryM.debug((rpm * 0.67));
         telemetryM.update(telemetry);
     }
 }

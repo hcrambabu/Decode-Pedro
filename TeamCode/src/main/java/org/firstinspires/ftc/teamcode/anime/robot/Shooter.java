@@ -17,6 +17,15 @@ public class Shooter {
     }
 
     public void start(double power) {
-        Utils.setSafePower(this.shooterMotor, power);
+        double cappedPower = Math.min(power, 0.67);
+        Utils.setSafePower(this.shooterMotor, cappedPower);
+    }
+
+    public double getVelocity() {
+        return this.shooterMotor.getVelocity();
+    }
+
+    public double getPower() {
+        return this.shooterMotor.getPower();
     }
 }
