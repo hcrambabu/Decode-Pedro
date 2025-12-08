@@ -17,7 +17,7 @@ public class Shooter {
     }
 
     public void start(double power) {
-        double cappedPower = Math.min(power, 0.67);
+        double cappedPower = Math.min(power, 0.8);
         Utils.setSafePower(this.shooterMotor, cappedPower);
     }
 
