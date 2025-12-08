@@ -31,6 +31,9 @@ public class AnimeTeleop extends OpMode {
     private Indexer indexer;
     private boolean indexerSlow = false;
 
+    private int shooterRpmPreset = 3;
+    private double[] shooterRpmPresets = {1000, 2000, 3000, 5100};
+    private static final double TICKS_PER_REVOLUTION = 112.0;
 
     @Override
     public void init() {
@@ -62,7 +65,18 @@ public class AnimeTeleop extends OpMode {
         follower.startTeleopDrive();
         follower.update();
     }
-
+    private void handleShooterPresetSelection() {
+        if (gamepad2.leftBumperWasPressed()) {
+            if (shooterRpmPreset > 0) {
+                shooterRpmPreset--;
+            }
+        }
+        if (gamepad2.rightBumperWasPressed()) {
+            if (shooterRpmPreset < shooterRpmPresets.length - 1) {
+                shooterRpmPreset++;
+            }
+        }
+    }
     @Override
     public void loop() {
         follower.update();
@@ -116,14 +130,19 @@ public class AnimeTeleop extends OpMode {
             }
         }
 
-        shooter.start(gamepad2.right_trigger);
+        double targetRpm = shooterRpmPresets[shooterRpmPreset];
+        double maxRpm = 6000;
+        double maxPowerForPreset = targetRpm / maxRpm;
+        double triggerPower = gamepad2.right_trigger;
+        double finalPower = triggerPower * maxPowerForPreset;
+        shooter.start(finalPower);
         lift.start(gamepad2.left_trigger);
         intake.start(-gamepad2.right_stick_y);
         if(gamepad2.xWasPressed()) {
             indexerSlow = !indexerSlow;
         }
         indexer.start(gamepad2.left_stick_x, indexerSlow);
-
+        handleShooterPresetSelection();
         telemetryM.debug("x:" + follower.getPose().getX());
         telemetryM.debug("y:" + follower.getPose().getY());
         telemetryM.debug("heading:" + follower.getPose().getHeading());
@@ -137,8 +156,8 @@ public class AnimeTeleop extends OpMode {
         telemetryM.debug("shooter power:" + this.shooter.getPower());
         telemetryM.debug("shooter power %:" + (this.shooter.getPower() * 100) + "%");
         telemetryM.debug("shooter velocity (ticks/sec):" + this.shooter.getVelocity());
+        telemetryM.debug("shooter preset:" + shooterRpmPreset + " target RPM:" + shooterRpmPresets[shooterRpmPreset]);
         //On GoBilda PPR is 28 and is a quadrature encoder so 28*4 = 112 ticks/revolution
-        double TICKS_PER_REVOLUTION = 112.0;
         double rpm = (this.shooter.getVelocity() / TICKS_PER_REVOLUTION) * 60;
         telemetryM.debug("shooter RPM:" + rpm);
         telemetryM.debug((rpm * 0.67));
