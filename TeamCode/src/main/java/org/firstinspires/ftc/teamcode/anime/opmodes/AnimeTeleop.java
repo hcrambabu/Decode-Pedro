@@ -67,14 +67,9 @@ public class AnimeTeleop extends OpMode {
     }
     private void handleShooterPresetSelection() {
         if (gamepad2.leftBumperWasPressed()) {
-            if (shooterRpmPreset > 0) {
-                shooterRpmPreset--;
-            }
-        }
-        if (gamepad2.rightBumperWasPressed()) {
-            if (shooterRpmPreset < shooterRpmPresets.length - 1) {
-                shooterRpmPreset++;
-            }
+            shooterRpmPreset = (shooterRpmPreset - 1 + shooterRpmPresets.length) % shooterRpmPresets.length;
+        } else if (gamepad2.rightBumperWasPressed()) {
+            shooterRpmPreset = (shooterRpmPreset + 1) % shooterRpmPresets.length;
         }
     }
     @Override
