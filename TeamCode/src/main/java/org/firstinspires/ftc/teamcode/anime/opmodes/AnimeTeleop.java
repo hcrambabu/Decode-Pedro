@@ -35,6 +35,9 @@ public class AnimeTeleop extends OpMode {
     private double[] shooterRpmPresets = {1000, 2000, 3000, 5100};
     private static final double TICKS_PER_REVOLUTION = 112.0;
 
+    private boolean dpadLeftWasPressed = false;
+    private boolean dpadRightWasPressed = false;
+
     @Override
     public void init() {
         follower = Constants.createFollower(hardwareMap);
@@ -45,7 +48,7 @@ public class AnimeTeleop extends OpMode {
         shooter = new Shooter(hardwareMap, telemetry);
         lift = new Lift(hardwareMap, telemetry);
         intake = new Intake(hardwareMap, telemetry);
-        indexer = new Indexer(hardwareMap, telemetry);
+        indexer = new Indexer(hardwareMap, telemetry, false);
 
 //        pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
 //                .addPath(new Path(new BezierLine(follower::getPose, new Pose(45, 98))))
@@ -136,7 +139,17 @@ public class AnimeTeleop extends OpMode {
         if(gamepad2.xWasPressed()) {
             indexerSlow = !indexerSlow;
         }
-        indexer.start(gamepad2.left_stick_x, indexerSlow);
+
+        if(dpadRightWasPressed != gamepad2.dpad_right && gamepad2.dpad_right) {
+            indexer.goToNextIntakeAngle();
+        } else if(dpadLeftWasPressed != gamepad2.dpad_left && gamepad2.dpad_left) {
+            indexer.goToPrevIntakeAngle();
+        } else {
+            indexer.start(gamepad2.left_stick_x, indexerSlow);
+        }
+        dpadRightWasPressed = gamepad2.dpad_right;
+        dpadLeftWasPressed = gamepad2.dpad_left;
+
         handleShooterPresetSelection();
         telemetryM.debug("x:" + follower.getPose().getX());
         telemetryM.debug("y:" + follower.getPose().getY());
@@ -145,8 +158,8 @@ public class AnimeTeleop extends OpMode {
         telemetryM.debug("slow mode:" + this.slowMode);
         telemetryM.debug("slow mode multiplier:" + this.slowModeMultiplier);
         telemetryM.debug("indexer slow mode:" + this.indexerSlow);
-        telemetryM.debug("shooter velocity:" + this.shooter.getVelocity());
-        telemetryM.debug("shooter power:" + this.shooter.getPower());
+        telemetryM.debug("indexer position:" + this.indexer.getCurrentPosition());
+        telemetryM.debug("indexer angle:" + this.indexer.getAngle());
         telemetryM.debug("shooter velocity:" + this.shooter.getVelocity());
         telemetryM.debug("shooter power:" + this.shooter.getPower());
         telemetryM.debug("shooter power %:" + (this.shooter.getPower() * 100) + "%");
