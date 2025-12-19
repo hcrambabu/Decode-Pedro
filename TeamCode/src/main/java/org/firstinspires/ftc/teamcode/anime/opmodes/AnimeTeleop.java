@@ -19,8 +19,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 public class AnimeTeleop extends OpMode {
     private Follower follower;
     private TelemetryManager telemetryM;
-    private boolean slowMode = false;
-    private double slowModeMultiplier = 0.2;
+    private boolean driveInSlowMode = false;
+    private double driveSlowModeMultiplier = 0.2;
     private double slowModeIncrement = 0.2;
     private boolean automatedDrive = false;
 //    private Supplier<PathChain> pathChain;
@@ -31,9 +31,8 @@ public class AnimeTeleop extends OpMode {
     private Indexer indexer;
     private boolean indexerSlow = false;
 
-    private int shooterRpmPreset = 3;
-    private double[] shooterRpmPresets = {1000, 2000, 3000, 5100};
-    private static final double TICKS_PER_REVOLUTION = 112.0;
+    private int shooterVelocityPreset = 3;
+    private double[] shooterVelocityPresets = {1000, 1200, 1600, 2000};
 
     private boolean dpadLeftWasPressed = false;
     private boolean dpadRightWasPressed = false;
@@ -70,11 +69,12 @@ public class AnimeTeleop extends OpMode {
     }
     private void handleShooterPresetSelection() {
         if (gamepad2.leftBumperWasPressed()) {
-            shooterRpmPreset = (shooterRpmPreset - 1 + shooterRpmPresets.length) % shooterRpmPresets.length;
+            shooterVelocityPreset = (shooterVelocityPreset - 1 + shooterVelocityPresets.length) % shooterVelocityPresets.length;
         } else if (gamepad2.rightBumperWasPressed()) {
-            shooterRpmPreset = (shooterRpmPreset + 1) % shooterRpmPresets.length;
+            shooterVelocityPreset = (shooterVelocityPreset + 1) % shooterVelocityPresets.length;
         }
     }
+
     @Override
     public void loop() {
         follower.update();
@@ -84,7 +84,7 @@ public class AnimeTeleop extends OpMode {
             //Make the last parameter false for field-centric
             //In case the drivers want to use a "slowMode" you can scale the vectors
             //This is the normal version to use in the TeleOp
-            if (!slowMode) follower.setTeleOpDrive(
+            if (!driveInSlowMode) follower.setTeleOpDrive(
                     -gamepad1.left_stick_y,
                     -gamepad1.left_stick_x,
                     -gamepad1.right_stick_x,
@@ -92,9 +92,9 @@ public class AnimeTeleop extends OpMode {
             );
                 //This is how it looks with slowMode on
             else follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y * slowModeMultiplier,
-                    -gamepad1.left_stick_x * slowModeMultiplier,
-                    -gamepad1.right_stick_x * slowModeMultiplier,
+                    -gamepad1.left_stick_y * driveSlowModeMultiplier,
+                    -gamepad1.left_stick_x * driveSlowModeMultiplier,
+                    -gamepad1.right_stick_x * driveSlowModeMultiplier,
                     true // Robot Centric
             );
         }
@@ -111,29 +111,31 @@ public class AnimeTeleop extends OpMode {
 
         //Slow Mode
         if (gamepad1.rightBumperWasPressed()) {
-            slowMode = !slowMode;
+            driveInSlowMode = !driveInSlowMode;
         }
         //Optional way to change slow mode strength
         if (gamepad1.xWasPressed()) {
-            slowModeMultiplier += slowModeIncrement;
-            if (slowModeMultiplier > 1) {
-                slowModeMultiplier = 1.0;
+            driveSlowModeMultiplier += slowModeIncrement;
+            if (driveSlowModeMultiplier > 1) {
+                driveSlowModeMultiplier = 1.0;
             }
         }
         //Optional way to change slow mode strength
         if (gamepad1.yWasPressed()) {
-            slowModeMultiplier -= slowModeIncrement;
-            if (slowModeMultiplier < slowModeIncrement) {
-                slowModeMultiplier = slowModeIncrement;
+            driveSlowModeMultiplier -= slowModeIncrement;
+            if (driveSlowModeMultiplier < slowModeIncrement) {
+                driveSlowModeMultiplier = slowModeIncrement;
             }
         }
 
-        double targetRpm = shooterRpmPresets[shooterRpmPreset];
-        double maxRpm = 6000;
-        double maxPowerForPreset = targetRpm / maxRpm;
-        double triggerPower = gamepad2.right_trigger;
-        double finalPower = triggerPower * maxPowerForPreset;
-        shooter.start(finalPower);
+        handleShooterPresetSelection();
+        double targetVelocity = shooterVelocityPresets[shooterVelocityPreset];
+        if(Math.abs(gamepad2.right_stick_y) >= 0.5) {
+            shooter.setVelocity(targetVelocity);
+        } else {
+            shooter.setVelocity(0);
+        }
+
         lift.start(gamepad2.left_trigger);
         intake.start(-gamepad2.right_stick_y);
         if(gamepad2.xWasPressed()) {
@@ -150,25 +152,19 @@ public class AnimeTeleop extends OpMode {
         dpadRightWasPressed = gamepad2.dpad_right;
         dpadLeftWasPressed = gamepad2.dpad_left;
 
-        handleShooterPresetSelection();
+
         telemetryM.debug("x:" + follower.getPose().getX());
         telemetryM.debug("y:" + follower.getPose().getY());
         telemetryM.debug("heading:" + follower.getPose().getHeading());
         telemetryM.debug("total heading:" + follower.getTotalHeading());
-        telemetryM.debug("slow mode:" + this.slowMode);
-        telemetryM.debug("slow mode multiplier:" + this.slowModeMultiplier);
+        telemetryM.debug("drive in slow mode:" + this.driveInSlowMode);
         telemetryM.debug("indexer slow mode:" + this.indexerSlow);
-        telemetryM.debug("indexer position:" + this.indexer.getCurrentPosition());
         telemetryM.debug("indexer angle:" + this.indexer.getAngle());
         telemetryM.debug("shooter velocity:" + this.shooter.getVelocity());
+        telemetryM.debug("shooter preset:" + shooterVelocityPreset + " target Velocity:" + shooterVelocityPresets[shooterVelocityPreset]);
         telemetryM.debug("shooter power:" + this.shooter.getPower());
-        telemetryM.debug("shooter power %:" + (this.shooter.getPower() * 100) + "%");
-        telemetryM.debug("shooter velocity (ticks/sec):" + this.shooter.getVelocity());
-        telemetryM.debug("shooter preset:" + shooterRpmPreset + " target RPM:" + shooterRpmPresets[shooterRpmPreset]);
-        //On GoBilda PPR is 28 and is a quadrature encoder so 28*4 = 112 ticks/revolution
-        double rpm = (this.shooter.getVelocity() / TICKS_PER_REVOLUTION) * 60;
-        telemetryM.debug("shooter RPM:" + rpm);
-        telemetryM.debug((rpm * 0.67));
+        telemetryM.debug("indexer front distance:" + this.indexer.getFrontDistance());
+        telemetryM.debug("indexer back distance:" + this.indexer.getBackDistance());
         telemetryM.update(telemetry);
     }
 }

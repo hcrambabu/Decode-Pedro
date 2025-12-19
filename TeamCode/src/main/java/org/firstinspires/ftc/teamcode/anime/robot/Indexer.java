@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.anime.robot;
 import android.util.Log;
 
 import com.qualcomm.robotcore.hardware.CRServoImplEx;
+import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -11,6 +12,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,12 +25,17 @@ public class Indexer {
     private static final double SLOW_SPEED_MULTIPLIER = 0.1;
 
     private final DcMotorEx indexerMotor;
+    private ColorRangeSensor frontColorSensor;
+    private ColorRangeSensor backColorSensor;
     private final ElapsedTime timer;
     private Telemetry telemetry;
     private int targetIndex = 0;
+    private boolean[] hasBall = {false, false, false};
 
     public Indexer(HardwareMap hardwareMap, Telemetry telemetry, boolean restMotorPosition) {
         this.indexerMotor = hardwareMap.get(DcMotorEx.class, "indexer");
+        this.frontColorSensor = hardwareMap.get(ColorRangeSensor.class, "fc");
+        this.backColorSensor = hardwareMap.get(ColorRangeSensor.class, "bc");
         this.indexerMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         this.telemetry = telemetry;
         timer = new ElapsedTime();
@@ -109,6 +116,24 @@ public class Indexer {
         return closestIndex;
     }
 
+    public void calculateTargetIndex() {
+        double currentAngle = getAngle();
+
+        // Normalize angle for comparison
+        double normalizedAngle = currentAngle % 360;
+        if (normalizedAngle < 0) normalizedAngle += 360;
+
+        // Check for manual intervention
+        // Calculate distance between current physical angle and what we THINK is the target
+        double errorFromState = Math.abs(normalizedAngle - INTAKE_ANGLES[targetIndex]);
+        if (errorFromState > 180) errorFromState = 360 - errorFromState;
+
+        // If error is large, the user moved the motor manually. Sync state first.
+        if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
+            targetIndex = getClosestIndex(currentAngle);
+        }
+    }
+
     /**
      * Sets the target angle.
      * Calculates the shortest path to the target angle (handling wrap-around).
@@ -142,21 +167,7 @@ public class Indexer {
     }
 
     public void goToNextIntakeAngle() {
-        double currentAngle = getAngle();
-
-        // Normalize angle for comparison
-        double normalizedAngle = currentAngle % 360;
-        if (normalizedAngle < 0) normalizedAngle += 360;
-
-        // Check for manual intervention
-        // Calculate distance between current physical angle and what we THINK is the target
-        double errorFromState = Math.abs(normalizedAngle - INTAKE_ANGLES[targetIndex]);
-        if (errorFromState > 180) errorFromState = 360 - errorFromState;
-
-        // If error is large, the user moved the motor manually. Sync state first.
-        if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
-            targetIndex = getClosestIndex(currentAngle);
-        }
+        calculateTargetIndex();
 
         // Increment index
         targetIndex = (targetIndex + 1) % INTAKE_ANGLES.length;
@@ -165,23 +176,31 @@ public class Indexer {
     }
 
     public void goToPrevIntakeAngle() {
-        double currentAngle = getAngle();
-
-        // Normalize angle for comparison
-        double normalizedAngle = currentAngle % 360;
-        if (normalizedAngle < 0) normalizedAngle += 360;
-
-        // Check for manual intervention
-        double errorFromState = Math.abs(normalizedAngle - INTAKE_ANGLES[targetIndex]);
-        if (errorFromState > 180) errorFromState = 360 - errorFromState;
-
-        if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
-            targetIndex = getClosestIndex(currentAngle);
-        }
+        calculateTargetIndex();
 
         // Decrement index
         targetIndex = (targetIndex - 1 + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
 
         setTargetAngle(INTAKE_ANGLES[targetIndex], SPEED_MULTIPLIER);
+    }
+
+    public void resetEncoder() {
+        this.indexerMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+    }
+
+    public double getFrontDistance() {
+        return frontColorSensor.getDistance(DistanceUnit.CM);
+    }
+
+    public double getBackDistance() {
+        return backColorSensor.getDistance(DistanceUnit.CM);
+    }
+
+    public double geFrontColor() {
+        return frontColorSensor.getLightDetected();
+    }
+
+    public double getBackColor() {
+        return backColorSensor.getLightDetected();
     }
 }
