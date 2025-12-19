@@ -130,7 +130,7 @@ public class AnimeTeleop extends OpMode {
 
         handleShooterPresetSelection();
         double targetVelocity = shooterVelocityPresets[shooterVelocityPreset];
-        if(Math.abs(gamepad2.right_stick_y) >= 0.5) {
+        if(gamepad2.right_trigger >= 0.5) {
             shooter.setVelocity(targetVelocity);
         } else {
             shooter.setVelocity(0);
