@@ -32,7 +32,7 @@ public class AnimeTeleop extends OpMode {
     private boolean indexerSlow = false;
 
     private int shooterVelocityPreset = 3;
-    private double[] shooterVelocityPresets = {1000, 1200, 1600, 2000};
+    private double[] shooterVelocityPresets = {1000, 1200, 1500, 1650};
 
     private boolean dpadLeftWasPressed = false;
     private boolean dpadRightWasPressed = false;
