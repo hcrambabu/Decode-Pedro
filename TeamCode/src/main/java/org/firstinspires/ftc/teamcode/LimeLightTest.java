@@ -76,10 +76,10 @@ public class LimeLightTest extends OpMode {
     public double getVelocityFromDistance(double distanceCm){
         double x = distanceCm;
         
-        double y = 301.4638 
-                + (62.3971 * x) 
-                - (1.271739 * x * x) 
-                + (0.008619351 * x * x * x);
+        double y = 4084.3 
+                - (125.4496 * x) 
+                + (1.763109 * x * x) 
+                - (0.007353914 * x * x * x);
         
         if (y < 0 || Double.isNaN(y) || Double.isInfinite(y)) {
             return 0;
