@@ -10,12 +10,9 @@ public class AnimeAutoRight extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        // Initialize hardware here
+        
         
         waitForStart();
-        
-        // Autonomous code here (30 seconds max)
-        
     }
 }
 
