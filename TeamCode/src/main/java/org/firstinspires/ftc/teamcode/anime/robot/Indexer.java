@@ -20,22 +20,27 @@ public class Indexer {
     private static final double TICKS_PER_REV = 751.8;
     private static final double TIME_OUT = 1.0;
     private static final double[] INTAKE_ANGLES = {60, 180, 300};
+    private static final double[] SHOOT_ANGLES = {0, 120, 240};
+    private static final int[] SHOOT_TO_INTAKE_MAP = {1, 0, 2};
     private static final double MANUAL_INTERVENTION_THRESHOLD = 45.0;
     private static final double SPEED_MULTIPLIER = 0.6;
     private static final double SLOW_SPEED_MULTIPLIER = 0.1;
+    private static final double INTAKE_DISTANCE_THRESHOLD = 2.0;
+    private static final double SHOOT_DISTANCE_THRESHOLD = 2.0;
 
     private final DcMotorEx indexerMotor;
-    private ColorRangeSensor frontColorSensor;
-    private ColorRangeSensor backColorSensor;
+    private ColorRangeSensor intakeColorAndDistanceSensor;
+    private ColorRangeSensor shootColorAndDistanceSensor;
     private final ElapsedTime timer;
     private Telemetry telemetry;
-    private int targetIndex = 0;
+    private int intakeIndex = 0;
+    private int shootIndex = 0;
     private boolean[] hasBall = {false, false, false};
 
     public Indexer(HardwareMap hardwareMap, Telemetry telemetry, boolean restMotorPosition) {
         this.indexerMotor = hardwareMap.get(DcMotorEx.class, "indexer");
-        this.frontColorSensor = hardwareMap.get(ColorRangeSensor.class, "fc");
-        this.backColorSensor = hardwareMap.get(ColorRangeSensor.class, "bc");
+        this.intakeColorAndDistanceSensor = hardwareMap.get(ColorRangeSensor.class, "fc");
+        this.shootColorAndDistanceSensor = hardwareMap.get(ColorRangeSensor.class, "bc");
         this.indexerMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         this.telemetry = telemetry;
         timer = new ElapsedTime();
@@ -93,14 +98,16 @@ public class Indexer {
     }
 
     /**
-     * Explicitly sets the internal state (targetIndex) to match the current physical motor position.
+     * Explicitly sets the internal state (intakeIndex and shootIndex) to match the current physical motor position.
      * Call this in init() or if you suspect the robot was moved manually while disabled.
      */
     public void syncToPhysicalPosition() {
-        this.targetIndex = getClosestIndex(getAngle());
+        double currentAngle = getAngle();
+        this.intakeIndex = getClosestIntakeIndex(currentAngle);
+        this.shootIndex = getClosestShootIndex(currentAngle);
     }
 
-    private int getClosestIndex(double currentAngle) {
+    private int getClosestIntakeIndex(double currentAngle) {
         int closestIndex = 0;
         double minDifference = Double.MAX_VALUE;
 
@@ -121,7 +128,28 @@ public class Indexer {
         return closestIndex;
     }
 
-    public void calculateTargetIndex() {
+    private int getClosestShootIndex(double currentAngle) {
+        int closestIndex = 0;
+        double minDifference = Double.MAX_VALUE;
+
+        // Normalize current angle to 0-360
+        double normalizedAngle = currentAngle % 360;
+        if (normalizedAngle < 0) normalizedAngle += 360;
+
+        for (int i = 0; i < SHOOT_ANGLES.length; i++) {
+            double diff = Math.abs(normalizedAngle - SHOOT_ANGLES[i]);
+            double diffWrapped = 360 - diff;
+            double shortestDiff = Math.min(diff, diffWrapped);
+
+            if (shortestDiff < minDifference) {
+                minDifference = shortestDiff;
+                closestIndex = i;
+            }
+        }
+        return closestIndex;
+    }
+
+    public void calculateIntakeIndex() {
         double currentAngle = getAngle();
 
         // Normalize angle for comparison
@@ -130,12 +158,29 @@ public class Indexer {
 
         // Check for manual intervention
         // Calculate distance between current physical angle and what we THINK is the target
-        double errorFromState = Math.abs(normalizedAngle - INTAKE_ANGLES[targetIndex]);
+        // Calculate distance between current physical angle and what we THINK is the target
+        double errorFromState = Math.abs(normalizedAngle - INTAKE_ANGLES[intakeIndex]);
         if (errorFromState > 180) errorFromState = 360 - errorFromState;
 
         // If error is large, the user moved the motor manually. Sync state first.
         if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
-            targetIndex = getClosestIndex(currentAngle);
+            intakeIndex = getClosestIntakeIndex(currentAngle);
+        }
+    }
+
+    public void calculateShootIndex() {
+        double currentAngle = getAngle();
+
+        // Normalize angle for comparison
+        double normalizedAngle = currentAngle % 360;
+        if (normalizedAngle < 0) normalizedAngle += 360;
+
+        // Check for manual intervention
+        double errorFromState = Math.abs(normalizedAngle - SHOOT_ANGLES[shootIndex]);
+        if (errorFromState > 180) errorFromState = 360 - errorFromState;
+
+        if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
+            shootIndex = getClosestShootIndex(currentAngle);
         }
     }
 
@@ -172,40 +217,124 @@ public class Indexer {
     }
 
     public void goToNextIntakeAngle() {
-        calculateTargetIndex();
+        calculateIntakeIndex();
 
         // Increment index
-        targetIndex = (targetIndex + 1) % INTAKE_ANGLES.length;
+        intakeIndex = (intakeIndex + 1) % INTAKE_ANGLES.length;
 
-        setTargetAngle(INTAKE_ANGLES[targetIndex], SPEED_MULTIPLIER);
+        setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
     }
 
     public void goToPrevIntakeAngle() {
-        calculateTargetIndex();
+        calculateIntakeIndex();
 
         // Decrement index
-        targetIndex = (targetIndex - 1 + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
+        intakeIndex = (intakeIndex - 1 + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
 
-        setTargetAngle(INTAKE_ANGLES[targetIndex], SPEED_MULTIPLIER);
+        setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
+    }
+
+    public void goToNextEmptyIntakeAngle() {
+        calculateIntakeIndex();
+
+        for (int i = 1; i < INTAKE_ANGLES.length; i++) {
+            int nextIndex = (intakeIndex + i) % INTAKE_ANGLES.length;
+            if (!hasBall[nextIndex]) {
+                intakeIndex = nextIndex;
+                setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+    }
+
+    public void goToPrevEmptyIntakeAngle() {
+        calculateIntakeIndex();
+
+        for (int i = 1; i < INTAKE_ANGLES.length; i++) {
+            int prevIndex = (intakeIndex - i + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
+            if (!hasBall[prevIndex]) {
+                intakeIndex = prevIndex;
+                setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+    }
+
+    public void goToNextShootAngle() {
+        calculateShootIndex();
+
+        // Increment index
+        shootIndex = (shootIndex + 1) % SHOOT_ANGLES.length;
+
+        setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
+    }
+
+    public void goToPrevShootAngle() {
+        calculateShootIndex();
+
+        // Decrement index
+        shootIndex = (shootIndex - 1 + SHOOT_ANGLES.length) % SHOOT_ANGLES.length;
+
+        setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
+    }
+
+    public void goToNextOccupiedShooterAngle() {
+        calculateShootIndex();
+
+        for (int i = 1; i < SHOOT_ANGLES.length; i++) {
+            int nextShootIndex = (shootIndex + i) % SHOOT_ANGLES.length;
+            int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[nextShootIndex];
+
+            if (hasBall[associatedIntakeIndex]) {
+                shootIndex = nextShootIndex;
+                setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+    }
+
+    public void goToPrevOccupiedShooterAngle() {
+        calculateShootIndex();
+
+        for (int i = 1; i < SHOOT_ANGLES.length; i++) {
+            int prevShootIndex = (shootIndex - i + SHOOT_ANGLES.length) % SHOOT_ANGLES.length;
+            int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[prevShootIndex];
+
+            if (hasBall[associatedIntakeIndex]) {
+                shootIndex = prevShootIndex;
+                setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
+                return;
+            }
+        }
     }
 
     public void resetEncoder() {
         this.indexerMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 
+    public void update() {
+        if (intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM) < INTAKE_DISTANCE_THRESHOLD) {
+            hasBall[intakeIndex] = true;
+        }
+    }
+
+    public boolean[] getBallStatus() {
+        return hasBall;
+    }
+
     public double getFrontDistance() {
-        return frontColorSensor.getDistance(DistanceUnit.CM);
+        return intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM);
     }
 
     public double getBackDistance() {
-        return backColorSensor.getDistance(DistanceUnit.CM);
+        return shootColorAndDistanceSensor.getDistance(DistanceUnit.CM);
     }
 
     public double geFrontColor() {
-        return frontColorSensor.getLightDetected();
+        return intakeColorAndDistanceSensor.getLightDetected();
     }
 
     public double getBackColor() {
-        return backColorSensor.getLightDetected();
+        return shootColorAndDistanceSensor.getLightDetected();
     }
 }

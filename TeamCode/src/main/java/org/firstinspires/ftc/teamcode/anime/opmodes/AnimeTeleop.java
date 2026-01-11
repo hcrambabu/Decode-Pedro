@@ -16,6 +16,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.anime.robot.Indexer;
 import org.firstinspires.ftc.teamcode.anime.robot.Intake;
 import org.firstinspires.ftc.teamcode.anime.robot.Lift;
+import org.firstinspires.ftc.teamcode.anime.robot.Limelight;
 import org.firstinspires.ftc.teamcode.anime.robot.Shooter;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -34,17 +35,12 @@ public class AnimeTeleop extends OpMode {
     private Lift lift;
     private Intake intake;
     private Indexer indexer;
-    private boolean indexerSlow = false;
 
-    private Limelight3A limelight;
-    private IMU imu;
+    private Limelight limelight;
+    private boolean indexerSlow = false;
 
     private int shooterVelocityPreset = 3;
     private double[] shooterVelocityPresets = {1000, 2000, 3000, 4000, 5000, 5000};
-    
-    private double lastCalculatedVelocity = 0;
-    private boolean useAutoVelocity = false;
-
     private boolean dpadLeftWasPressed = false;
     private boolean dpadRightWasPressed = false;
 
@@ -59,25 +55,7 @@ public class AnimeTeleop extends OpMode {
         lift = new Lift(hardwareMap, telemetry);
         intake = new Intake(hardwareMap, telemetry);
         indexer = new Indexer(hardwareMap, telemetry, false);
-
-        try {
-            limelight = hardwareMap.get(Limelight3A.class, "limelight");
-            limelight.pipelineSwitch(9);
-            limelight.start();
-        } catch (Exception e) {
-            limelight = null;
-        }
-
-        try {
-            imu = hardwareMap.get(IMU.class, "imu");
-            RevHubOrientationOnRobot revHubOrientationOnRobot = new RevHubOrientationOnRobot(
-                    RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                    RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
-            );
-            imu.initialize(new IMU.Parameters(revHubOrientationOnRobot));
-        } catch (Exception e) {
-            imu = null;
-        }
+        limelight = new Limelight(hardwareMap, telemetry);
 
 //        pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
 //                .addPath(new Path(new BezierLine(follower::getPose, new Pose(45, 98))))
@@ -159,45 +137,17 @@ public class AnimeTeleop extends OpMode {
         }
 
         handleShooterPresetSelection();
-        
-        double targetVelocity = 0;
-        boolean limelightDetected = false;
-        double calculatedVelocity = 0;
-        
-        if (limelight != null && imu != null) {
-            try {
-                YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
-                limelight.updateRobotOrientation(orientation.getYaw());
-                LLResult llresult = limelight.getLatestResult();
-                
-                if (llresult != null && llresult.isValid() && llresult.getTa() > 0) {
-                    limelightDetected = true;
-                    double distanceCm = getDistance(llresult.getTa());
-                    calculatedVelocity = getVelocityFromDistance(distanceCm);
-                    
-                    if (!Double.isNaN(calculatedVelocity) && !Double.isInfinite(calculatedVelocity)) {
-                        targetVelocity = calculatedVelocity;
-                        lastCalculatedVelocity = calculatedVelocity;
-                        useAutoVelocity = true;
-                    } else {
-                        targetVelocity = 0;
-                        useAutoVelocity = false;
-                    }
-                } else {
-                    targetVelocity = 0;
-                    useAutoVelocity = false;
-                }
-            } catch (Exception e) {
-                targetVelocity = 0;
-                useAutoVelocity = false;
-            }
-        } else {
-            targetVelocity = 0;
-            useAutoVelocity = false;
-        }
-        
+
+        boolean useAutoVelocity = false;
+        double calculatedVelocity = 0.0f;
         if(gamepad2.right_trigger >= 0.5) {
-            shooter.setVelocity(targetVelocity);
+            calculatedVelocity = limelight.getVelocity();
+            if (calculatedVelocity >= 0) {
+                useAutoVelocity = true;
+                shooter.setVelocity(calculatedVelocity);
+            } else {
+                // TODO: manual mode?
+            }
         } else {
             shooter.setVelocity(0);
         }
@@ -233,10 +183,9 @@ public class AnimeTeleop extends OpMode {
         telemetryM.debug("indexer slow mode:" + this.indexerSlow);
         telemetryM.debug("indexer angle:" + this.indexer.getAngle());
         telemetryM.debug("shooter velocity:" + this.shooter.getVelocity());
-        if (limelightDetected && useAutoVelocity) {
+        if (useAutoVelocity) {
             telemetryM.debug("shooter mode: AUTO (Limelight)");
             telemetryM.debug("calculated velocity:" + calculatedVelocity);
-            telemetryM.debug("target velocity:" + targetVelocity);
         } else {
             telemetryM.debug("shooter mode: MANUAL");
             telemetryM.debug("shooter preset:" + shooterVelocityPreset + " target Velocity:" + shooterVelocityPresets[shooterVelocityPreset]);
@@ -245,30 +194,5 @@ public class AnimeTeleop extends OpMode {
         telemetryM.debug("indexer front distance:" + this.indexer.getFrontDistance());
         telemetryM.debug("indexer back distance:" + this.indexer.getBackDistance());
         telemetryM.update(telemetry);
-    }
-
-    public double getDistance(double ta){
-        double a = 2742.663;
-        double b = -1.535693;
-
-        if (ta <= 0) return Double.POSITIVE_INFINITY;
-
-        return Math.pow(ta / a, 1.0 / b);
-    }
-
-    public double getVelocityFromDistance(double distanceCm){
-        double x = distanceCm;
-        
-//        double y = 4084.3
-//                - (125.4496 * x)
-//                + (1.763109 * x * x)
-//                - (0.007353914 * x * x * x);
-
-                double y = 4084.3
-                - (125.4496 * x)
-                + (1.763109 * x * x)
-                - (0.007353914 * x * x * x) + .5;
-        
-        return y;
     }
 }
