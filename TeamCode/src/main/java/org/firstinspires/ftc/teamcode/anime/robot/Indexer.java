@@ -61,6 +61,11 @@ public class Indexer {
         this.indexerMotor.setPower(0);
     }
 
+    public void forceFeed(double power) {
+        this.indexerMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        this.indexerMotor.setPower(power * SPEED_MULTIPLIER);
+    }
+
     public boolean isBusy(boolean cancelTheCurrentJob) {
         if (cancelTheCurrentJob) {
             stop();

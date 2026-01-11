@@ -9,7 +9,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class Shooter {
 
-    public static final double MAX_VELOCITY = 6000;
+    public static final double MAX_VELOCITY = 5000;
     private final DcMotorEx shooterMotor;
     private Telemetry telemetry;
 
