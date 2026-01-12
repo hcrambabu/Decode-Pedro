@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.anime.opmodes;
 
+import android.util.Log;
+
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
@@ -140,13 +142,17 @@ public class AnimeTeleop extends OpMode {
 
         boolean useAutoVelocity = false;
         double calculatedVelocity = 0.0f;
+
         if(gamepad2.right_trigger >= 0.5) {
             calculatedVelocity = limelight.getVelocity();
-            if (calculatedVelocity >= 0) {
+            Log.i("AnimeTeleop", "calculatedVelocity: " + calculatedVelocity);
+            if (calculatedVelocity != -1) {
+                // Target detected - use calculated velocity from limelight
                 useAutoVelocity = true;
                 shooter.setVelocity(calculatedVelocity);
             } else {
-                // TODO: manual mode?
+                // Target not detected - don't rev the shooter
+                shooter.setVelocity(0);
             }
         } else {
             shooter.setVelocity(0);

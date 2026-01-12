@@ -35,7 +35,7 @@ public class Limelight {
 
         if (ta <= 0) return -1;
 
-        return Math.pow(ta / a, 1.0 / b);
+        return Math.pow(ta / a, 1.0 / b)/2.54;
     }
 
     public double getVelocityFromDistance(double distanceCm) {
@@ -46,12 +46,12 @@ public class Limelight {
 //                + (1.763109 * x * x)
 //                - (0.007353914 * x * x * x);
 
-        double y = 4084.3
+        double y = (4084.3
                 - (125.4496 * x)
                 + (1.763109 * x * x)
-                - (0.007353914 * x * x * x) + .5;
+                - (0.007353914 * x * x * x)) +25 ;
 
-        return y;
+        return Math.abs(y);
     }
 
     public double getVelocity() {
@@ -60,10 +60,18 @@ public class Limelight {
             limelight.updateRobotOrientation(orientation.getYaw());
             LLResult llresult = limelight.getLatestResult();
 
-            if (llresult != null && llresult.isValid() && llresult.getTa() > 0) {
-                double distanceCm = getDistance(llresult.getTa());
-                if (distanceCm >= 0) {
-                    return getVelocityFromDistance(distanceCm);
+            Log.i("Limelight", "llresult: " + llresult);
+            if (llresult != null && llresult.isValid()) {
+                double ta = llresult.getTa();
+                Log.i("Limelight", "ta: " + ta);
+                if (ta > 0) {
+                    double distanceCm = getDistance(ta);
+                    Log.i("Limelight", "distanceCm: " + distanceCm);
+                    if (distanceCm >= 0) {
+                        double v = getVelocityFromDistance(distanceCm);
+                        Log.i("Limelight", "v: " + v);
+                        return v;
+                    }
                 }
             }
         } catch (Exception e) {
