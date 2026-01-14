@@ -8,6 +8,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 @Autonomous(name="Anime: Auto Left", group="Anime")
 public class AnimeAutoLeft extends LinearOpMode {
 
+    private Follower follower;
+
+    private timer time
+
     @Override
     public void runOpMode() {
 

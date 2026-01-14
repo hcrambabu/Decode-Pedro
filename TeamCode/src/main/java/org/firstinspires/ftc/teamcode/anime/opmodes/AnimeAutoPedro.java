@@ -10,10 +10,9 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-
 @Configurable
-@Autonomous(name = "Anime: Auto Blue", group = "Anime")
-public class AnimeAutoBlue extends LinearOpMode {
+@Autonomous(name = "Anime: Pedro Auto Test", group = "Anime")
+public class AnimeAutoPedro extends LinearOpMode {
 
     private Follower follower;
     private PathChain testPath;
@@ -28,7 +27,7 @@ public class AnimeAutoBlue extends LinearOpMode {
     @Override
     public void runOpMode() {
         // #region agent log
-        log("AnimeAutoBlue.java:29", "runOpMode called", null, "A");
+        log("AnimeAutoBlue.java:18", "runOpMode called", null, "A");
         // #endregion
 
         // --------------------
@@ -38,38 +37,38 @@ public class AnimeAutoBlue extends LinearOpMode {
         telemetry.update();
         
         // #region agent log
-        log("AnimeAutoBlue.java:37", "Before Follower initialization", "Constants.createFollower", "B");
+        log("AnimeAutoPedro.java:37", "Before Follower initialization", "Constants.createFollower", "B");
         // #endregion
         follower = Constants.createFollower(hardwareMap);
         // #region agent log
-        log("AnimeAutoBlue.java:40", "After Follower initialization", follower != null ? "success" : "null", "B");
+        log("AnimeAutoPedro.java:40", "After Follower initialization", follower != null ? "success" : "null", "B");
         // #endregion
 
         // Starting pose (x, y, heading in radians)
         Pose startPose = new Pose(56.00, 8.00, Math.PI/2);
         // #region agent log
-        log("AnimeAutoBlue.java:45", "Before setStartingPose", "Pose(56.00, 8.00, PI/2)", "E");
+        log("AnimeAutoPedro.java:45", "Before setStartingPose", "Pose(56.00, 8.00, PI/2)", "E");
         // #endregion
         follower.setStartingPose(startPose);
         follower.update();
         // #region agent log
-        log("AnimeAutoBlue.java:49", "After setStartingPose", "success", "E");
+        log("AnimeAutoPedro.java:49", "After setStartingPose", "success", "E");
         // #endregion
 
         // Build a simple path using BezierLine
         Pose endPose = new Pose(92.60806916426513, 83.11815561959654, Math.PI/2);
         // #region agent log
-        log("AnimeAutoBlue.java:54", "Before pathBuilder", null, "C");
+        log("AnimeAutoPedro.java:54", "Before pathBuilder", null, "C");
         // #endregion
         testPath = follower.pathBuilder()
                 .addPath(new BezierLine(startPose, endPose))
                 .setLinearHeadingInterpolation(startPose.getHeading(), endPose.getHeading())
                 .build();
         // #region agent log
-        log("AnimeAutoBlue.java:59", "After pathBuilder.build()", testPath != null ? "success" : "null", "C");
+        log("AnimeAutoPedro.java:59", "After pathBuilder.build()", testPath != null ? "success" : "null", "C");
         // #endregion
 
-        telemetry.addLine("Anime Auto Blue Initialized");
+        telemetry.addLine("Pedro Auto Initialized");
         telemetry.addData("Start Pose", String.format("(%.2f, %.2f, %.2f°)", 
             startPose.getX(), startPose.getY(), Math.toDegrees(startPose.getHeading())));
         telemetry.addData("End Pose", String.format("(%.2f, %.2f, %.2f°)", 
@@ -87,7 +86,7 @@ public class AnimeAutoBlue extends LinearOpMode {
         // --------------------
         if (testPath == null) {
             // #region agent log
-            log("AnimeAutoBlue.java:78", "ERROR: testPath is null", null, "D");
+            log("AnimeAutoPedro.java:78", "ERROR: testPath is null", null, "D");
             // #endregion
             telemetry.addLine("ERROR: Path is null!");
             telemetry.update();
@@ -98,16 +97,16 @@ public class AnimeAutoBlue extends LinearOpMode {
         }
         
         // #region agent log
-        log("AnimeAutoBlue.java:87", "Before followPath", "path exists", "D");
+        log("AnimeAutoPedro.java:87", "Before followPath", "path exists", "D");
         // #endregion
         follower.followPath(testPath);
         // #region agent log
-        log("AnimeAutoBlue.java:90", "After followPath", "isBusy=" + follower.isBusy(), "D");
+        log("AnimeAutoPedro.java:90", "After followPath", "isBusy=" + follower.isBusy(), "D");
         // #endregion
 
         int loopCount = 0;
         // #region agent log
-        log("AnimeAutoBlue.java:94", "Entering path following loop", "isBusy=" + follower.isBusy(), "D");
+        log("AnimeAutoPedro.java:94", "Entering path following loop", "isBusy=" + follower.isBusy(), "D");
         // #endregion
         
         while (opModeIsActive() && follower.isBusy()) {
@@ -122,7 +121,7 @@ public class AnimeAutoBlue extends LinearOpMode {
             // Log every 50 iterations to avoid spam
             if (loopCount % 50 == 0) {
                 // #region agent log
-                log("AnimeAutoBlue.java:108", "Loop iteration", "count=" + loopCount + ", isBusy=" + follower.isBusy(), "D");
+                log("AnimeAutoPedro.java:108", "Loop iteration", "count=" + loopCount + ", isBusy=" + follower.isBusy(), "D");
                 // #endregion
             }
             
@@ -131,7 +130,7 @@ public class AnimeAutoBlue extends LinearOpMode {
         }
         
         // #region agent log
-        log("AnimeAutoBlue.java:118", "Loop exited", "final count=" + loopCount + ", isBusy=" + follower.isBusy(), "D");
+        log("AnimeAutoPedro.java:118", "Loop exited", "final count=" + loopCount + ", isBusy=" + follower.isBusy(), "D");
         // #endregion
         
         telemetry.addLine("Path following complete");
