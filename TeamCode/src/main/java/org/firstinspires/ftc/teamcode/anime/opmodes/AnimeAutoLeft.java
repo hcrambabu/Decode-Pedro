@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.anime.opmodes;
 
 import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.follower.Follower;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
@@ -10,7 +11,7 @@ public class AnimeAutoLeft extends LinearOpMode {
 
     private Follower follower;
 
-    private timer time
+//    private timer time
 
     @Override
     public void runOpMode() {

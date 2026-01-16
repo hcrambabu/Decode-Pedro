@@ -143,19 +143,19 @@ public class AnimeTeleop extends OpMode {
         boolean useAutoVelocity = false;
         double calculatedVelocity = 0.0f;
 
-        if(gamepad2.right_trigger >= 0.5) {
+        if(gamepad2.right_trigger >= 0.2) {
             calculatedVelocity = limelight.getVelocity();
             Log.i("AnimeTeleop", "calculatedVelocity: " + calculatedVelocity);
             if (calculatedVelocity != -1) {
                 // Target detected - use calculated velocity from limelight
                 useAutoVelocity = true;
-                shooter.setVelocity(calculatedVelocity);
+                shooter.setVelocity(calculatedVelocity, true);
             } else {
                 // Target not detected - don't rev the shooter
-                shooter.setVelocity(0);
+                shooter.setVelocity(Shooter.MAX_VELOCITY * gamepad2.right_trigger, true);
             }
         } else {
-            shooter.setVelocity(0);
+            shooter.setVelocity(0, true);
         }
 
         lift.start(gamepad2.left_trigger);
@@ -164,7 +164,7 @@ public class AnimeTeleop extends OpMode {
             indexerSlow = !indexerSlow;
         }
 
-        boolean isShooting = gamepad2.right_trigger >= 0.5 && gamepad2.left_trigger > 0 && (gamepad2.dpad_right || gamepad2.dpad_left);
+        boolean isShooting = gamepad2.right_trigger >= 0.2 && gamepad2.left_trigger > 0 && (gamepad2.dpad_right || gamepad2.dpad_left);
         
         if (isShooting) {
             indexer.forceFeed(1.0);
