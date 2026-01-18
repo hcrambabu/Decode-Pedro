@@ -62,12 +62,13 @@ public abstract class AutoBase extends OpMode {
         actionTimer = new Timer();
         opmodeTimer = new Timer();
         opmodeTimer.resetTimer();
-        this.robot = new GreenApple(hardwareMap, telemetry);
+        this.robot = new GreenApple(hardwareMap, telemetry, true);
         this.limelight = robot.getLimelight();
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startPose);
 //        findPattern();
         robot.setFlyWheelShootingVelocity(shootingVelocity);
+        robot.getIndexer().setAllBallsTrue();
         buildPaths();
     }
 
@@ -85,12 +86,9 @@ public abstract class AutoBase extends OpMode {
         autonomousPathUpdate();
         robot.update();
         PoseStorage.currentPose = follower.getPose();
+
         // Feedback to Driver Hub for debugging
-        telemetry.addData("path state", pathState);
-        telemetry.addData("x", follower.getPose().getX());
-        telemetry.addData("y", follower.getPose().getY());
-        telemetry.addData("heading", follower.getPose().getHeading());
-        telemetry.update();
+        updateTelemetry();
     }
 
 
@@ -108,9 +106,11 @@ public abstract class AutoBase extends OpMode {
 
     public void updateTelemetry() {
         telemetry.addData("April Tag Pattern", currentPattern);
-
         telemetry.addData("Path State", pathState);
         telemetry.addData("Path Time", pathTimer.getElapsedTimeSeconds());
+        telemetry.addData("Action State", actionState.name());
+        telemetry.addData("Action Time", actionTimer.getElapsedTimeSeconds());
+        telemetry.addData("Robot Pose", follower.getPose().toString());
         telemetry.update();
     }
 
@@ -177,8 +177,8 @@ public abstract class AutoBase extends OpMode {
                             robot.startShooting();
                         } else if(!robot.isBusy()) {
                             robot.startShooting();
-                        follower.followPath(pickupOrderPathChains[i], true);
-                        setActionState(ActionState.GO_TO_PICKUP_POSE);
+                            follower.followPath(pickupOrderPathChains[i], true);
+                            setActionState(ActionState.GO_TO_PICKUP_POSE);
                         }
                     }
                     break;

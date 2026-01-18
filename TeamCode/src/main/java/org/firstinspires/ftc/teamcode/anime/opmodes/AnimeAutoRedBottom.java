@@ -4,6 +4,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.anime.robot.AutoBase;
 
@@ -23,7 +24,7 @@ public class AnimeAutoRedBottom extends AutoBase {
                 new Pose(100, 83.5, Math.toRadians(0))
         };
         isRed = true;
-        shootingVelocity = 2000;
+        shootingVelocity = 500;
     }
 }
 

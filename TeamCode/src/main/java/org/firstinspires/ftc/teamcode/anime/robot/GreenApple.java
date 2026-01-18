@@ -5,6 +5,8 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
+import java.util.Arrays;
+
 public class GreenApple {
 
     private enum RobotState {
@@ -21,15 +23,18 @@ public class GreenApple {
 
     private final Limelight limelight;
 
+    private Telemetry telemetry;
+
     private final Timer stateTimer;
     private RobotState robotState = RobotState.IDLE;
     private double flyWheelVelocity = 0;
 
-    public GreenApple(HardwareMap hardwareMap, Telemetry telemetry) {
+    public GreenApple(HardwareMap hardwareMap, Telemetry telemetry, boolean resetIndexers) {
+        this.telemetry = telemetry;
         shooter = new Shooter(hardwareMap, telemetry);
         lift = new Lift(hardwareMap, telemetry);
         intake = new Intake(hardwareMap, telemetry);
-        indexer = new Indexer(hardwareMap, telemetry, false);
+        indexer = new Indexer(hardwareMap, telemetry, resetIndexers);
         limelight = new Limelight(hardwareMap, telemetry);
         stateTimer = new Timer();
     }
@@ -63,6 +68,12 @@ public class GreenApple {
         stateTimer.resetTimer();
     }
 
+    public void updateTelemetry() {
+        telemetry.addData("Robot State", robotState.name());
+        telemetry.addData("Robot State Timer: ", stateTimer.getElapsedTimeSeconds());
+        telemetry.addData("Balls", Arrays.toString(indexer.getBallStatus()));
+    }
+
     public void update() {
         switch (robotState) {
             case IDLE:
@@ -80,13 +91,13 @@ public class GreenApple {
                 break;
             case LAUNCH_BALL:
                 indexer.updateShootingPos();
-                if (!indexer.hasBallInShootingPosition() && stateTimer.getElapsedTime() > 1.0) {
+                if (!indexer.hasBallInShootingPosition() && stateTimer.getElapsedTimeSeconds() > 1.0) {
                     if (indexer.hasBalls()) {
                         setRobotState(RobotState.SPIN_FLY_WHEEL);
                     } else {
                         shooter.setVelocity(0, true);
                         lift.stop();
-                        intake.start(1.0);
+                        intake.start(-1.0);
                         indexer.goToNextEmptyIntakeAngle();
                         setRobotState(RobotState.COLLECT_BALL);
                     }
@@ -94,7 +105,8 @@ public class GreenApple {
                 break;
             case COLLECT_BALL:
                 indexer.updateIntakePos();
-                if(indexer.hasAllBalls() || stateTimer.getElapsedTime() > 10.0) {
+                if(indexer.hasAllBalls() || stateTimer.getElapsedTimeSeconds() > 10.0) {
+
                     intake.stop();
                     setRobotState(RobotState.IDLE);
                 } else if (indexer.hasBallInIntakePosition()) {
@@ -102,6 +114,8 @@ public class GreenApple {
                 }
                 break;
         }
+
+        updateTelemetry();
     }
 
     private boolean shooting = false;

@@ -9,9 +9,10 @@ public class Utils {
 
     public static void setSafePower(DcMotorEx motor, double targetPower) {
 
-        double currentPower = motor.getPower();
-        double desiredChange = targetPower - currentPower;
-        double limitedChange = Math.max(-SLEW_RATE, Math.min(desiredChange, SLEW_RATE));
-        motor.setPower(currentPower += limitedChange);
+//        double currentPower = motor.getPower();
+//        double desiredChange = targetPower - currentPower;
+//        double limitedChange = Math.max(-SLEW_RATE, Math.min(desiredChange, SLEW_RATE));
+//        motor.setPower(currentPower += limitedChange);
+        motor.setPower(targetPower);
     }
 }

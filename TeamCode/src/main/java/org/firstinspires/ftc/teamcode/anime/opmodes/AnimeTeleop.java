@@ -56,7 +56,7 @@ public class AnimeTeleop extends OpMode {
         follower.setStartingPose(PoseStorage.currentPose);
         follower.update();
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
-        robot = new GreenApple(hardwareMap, telemetry);
+        robot = new GreenApple(hardwareMap, telemetry, false);
 
 
         shooter = robot.getShooter();
@@ -103,7 +103,7 @@ public class AnimeTeleop extends OpMode {
             if (!driveInSlowMode) follower.setTeleOpDrive(
                     -gamepad1.left_stick_y,
                     -gamepad1.left_stick_x,
-                    -gamepad1.right_stick_x,
+                    -gamepad1.right_stick_x * 0.5, // for finer rotation control
                     true // Robot Centric
             );
                 //This is how it looks with slowMode on
@@ -124,6 +124,13 @@ public class AnimeTeleop extends OpMode {
 //            follower.startTeleopDrive();
 //            automatedDrive = false;
 //        }
+
+        // Endgame lift
+        if (gamepad1.dpad_up) {
+            lift.startServos(1.0);
+        } else if (gamepad1.dpad_down) {
+            lift.stopServos();
+        }
 
         //Slow Mode
         if (gamepad1.rightBumperWasPressed()) {

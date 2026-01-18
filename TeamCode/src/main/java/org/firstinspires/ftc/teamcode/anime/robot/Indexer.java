@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -22,11 +23,14 @@ public class Indexer {
     private static final double SPEED_MULTIPLIER = 0.6;
     private static final double SLOW_SPEED_MULTIPLIER = 0.1;
     private static final double INTAKE_DISTANCE_THRESHOLD = 2.0;
-    private static final double SHOOT_DISTANCE_THRESHOLD = 2.0;
+    private static final double SHOOT_DISTANCE_THRESHOLD = 1.5;
+    private static final double ANGLE_TOLERANCE = 10.0;
 
     private final DcMotorEx indexerMotor;
     private ColorRangeSensor intakeColorAndDistanceSensor;
     private ColorRangeSensor shootColorAndDistanceSensor;
+
+    private Servo indexerLight;
     private final ElapsedTime timer;
     private Telemetry telemetry;
     private int intakeIndex = 0;
@@ -37,6 +41,7 @@ public class Indexer {
         this.indexerMotor = hardwareMap.get(DcMotorEx.class, "indexer");
         this.intakeColorAndDistanceSensor = hardwareMap.get(ColorRangeSensor.class, "fc");
         this.shootColorAndDistanceSensor = hardwareMap.get(ColorRangeSensor.class, "bc");
+        this.indexerLight = hardwareMap.get(Servo.class, "light-2");
         this.indexerMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         this.telemetry = telemetry;
         timer = new ElapsedTime();
@@ -240,10 +245,12 @@ public class Indexer {
                 setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
                 updateIntakePos();
                 if (!hasBall[intakeIndex]) {
+                    this.indexerLight.setPosition(0.0);
                     return;
                 }
             }
         }
+        this.indexerLight.setPosition(1.0);
     }
 
     public void goToPrevEmptyIntakeAngle() {
@@ -256,10 +263,12 @@ public class Indexer {
                 setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
                 updateIntakePos();
                 if (!hasBall[intakeIndex]) {
+                    this.indexerLight.setPosition(0.0);
                     return;
                 }
             }
         }
+        this.indexerLight.setPosition(1.0);
     }
 
     public void goToNextShootAngle() {
@@ -290,7 +299,7 @@ public class Indexer {
                 shootIndex = nextShootIndex;
                 setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
                 updateShootingPos();
-                if (!hasBall[associatedIntakeIndex]) {
+                if (hasBall[associatedIntakeIndex]) {
                     return;
                 }
             }
@@ -307,7 +316,7 @@ public class Indexer {
                 shootIndex = prevShootIndex;
                 setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
                 updateShootingPos();
-                if (!hasBall[associatedIntakeIndex]) {
+                if (hasBall[associatedIntakeIndex]) {
                     return;
                 }
             }
@@ -318,15 +327,35 @@ public class Indexer {
         this.indexerMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 
+    private boolean isAtAngle(double targetAngle) {
+        double currentAngle = getAngle();
+        double diff = Math.abs(currentAngle - targetAngle);
+        diff = diff % 360;
+        if (diff > 180) {
+            diff = 360 - diff;
+        }
+        return diff < ANGLE_TOLERANCE;
+    }
+
     public void updateIntakePos() {
+        if (!isAtAngle(INTAKE_ANGLES[intakeIndex])) {
+            return;
+        }
+//        Log.i("Indexer", "Intake position distance: " + intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM));
         if (intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM) < INTAKE_DISTANCE_THRESHOLD) {
+            Log.i("Indexer", intakeIndex + " : " + true);
             hasBall[intakeIndex] = true;
         }
     }
 
     public void updateShootingPos() {
-        if (shootColorAndDistanceSensor.getDistance(DistanceUnit.CM) > INTAKE_DISTANCE_THRESHOLD) {
+        if (!isAtAngle(SHOOT_ANGLES[shootIndex])) {
+            return;
+        }
+//        Log.i("Indexer", "Shooting position distance: " + shootColorAndDistanceSensor.getDistance(DistanceUnit.CM));
+        if (shootColorAndDistanceSensor.getDistance(DistanceUnit.CM) > SHOOT_DISTANCE_THRESHOLD) {
             int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[shootIndex];
+            Log.i("Indexer", shootIndex + " : " + false);
             hasBall[associatedIntakeIndex] = false;
         }
     }
@@ -366,5 +395,11 @@ public class Indexer {
 
     public boolean hasBallInIntakePosition() {
         return hasBall[intakeIndex];
+    }
+
+    public void setAllBallsTrue() {
+        hasBall[0] = true;
+        hasBall[1] = true;
+        hasBall[2] = true;
     }
 }
