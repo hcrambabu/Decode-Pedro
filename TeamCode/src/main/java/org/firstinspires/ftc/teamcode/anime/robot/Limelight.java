@@ -46,10 +46,7 @@ public class Limelight {
 //                + (1.763109 * x * x)
 //                - (0.007353914 * x * x * x);
 
-        double y = (4084.3
-                - (125.4496 * x)
-                + (1.763109 * x * x)
-                - (0.007353914 * x * x * x)) +25 ;
+        double y = 1622.29 + (-331296900 - 1622.29) / (1 + Math.pow(x / 0.001064594, 1.279408));
 
         return Math.abs(y);
     }
@@ -76,6 +73,24 @@ public class Limelight {
             }
         } catch (Exception e) {
             Log.i("Limelight", "Exception in getVelocity", e);
+        }
+        return -1;
+    }
+
+    public int getAprilTagId() {
+        try {
+            YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
+            limelight.updateRobotOrientation(orientation.getYaw());
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                if (!result.getFiducialResults().isEmpty()) {
+                    int id = result.getFiducialResults().get(0).getFiducialId();
+                    Log.i("Limelight", "Found AprilTagId: " + id);
+                    return id;
+                }
+            }
+        } catch (Exception e) {
+            Log.i("Limelight", "Exception in getAprilTagId", e);
         }
         return -1;
     }

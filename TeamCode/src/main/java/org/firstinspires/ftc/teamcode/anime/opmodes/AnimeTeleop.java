@@ -15,10 +15,12 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.limelightvision.LLResult;
 
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+import org.firstinspires.ftc.teamcode.anime.robot.GreenApple;
 import org.firstinspires.ftc.teamcode.anime.robot.Indexer;
 import org.firstinspires.ftc.teamcode.anime.robot.Intake;
 import org.firstinspires.ftc.teamcode.anime.robot.Lift;
 import org.firstinspires.ftc.teamcode.anime.robot.Limelight;
+import org.firstinspires.ftc.teamcode.anime.robot.PoseStorage;
 import org.firstinspires.ftc.teamcode.anime.robot.Shooter;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -33,6 +35,8 @@ public class AnimeTeleop extends OpMode {
     private boolean automatedDrive = false;
 //    private Supplier<PathChain> pathChain;
 
+
+    private GreenApple robot;
     private Shooter shooter;
     private Lift lift;
     private Intake intake;
@@ -49,15 +53,17 @@ public class AnimeTeleop extends OpMode {
     @Override
     public void init() {
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(new Pose(72,72)); // TODO: Get latest pose from Auto End.
+        follower.setStartingPose(PoseStorage.currentPose);
         follower.update();
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
+        robot = new GreenApple(hardwareMap, telemetry);
 
-        shooter = new Shooter(hardwareMap, telemetry);
-        lift = new Lift(hardwareMap, telemetry);
-        intake = new Intake(hardwareMap, telemetry);
-        indexer = new Indexer(hardwareMap, telemetry, false);
-        limelight = new Limelight(hardwareMap, telemetry);
+
+        shooter = robot.getShooter();
+        lift = robot.getLift();
+        intake = robot.getIntake();
+        indexer = robot.getIndexer();
+        limelight = robot.getLimelight();
 
 //        pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
 //                .addPath(new Path(new BezierLine(follower::getPose, new Pose(45, 98))))

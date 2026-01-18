@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.anime.robot;
 
 import android.util.Log;
 
-import com.qualcomm.robotcore.hardware.CRServoImplEx;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -11,10 +10,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class Indexer {
     private static final double TICKS_PER_REV = 751.8;
@@ -242,7 +238,10 @@ public class Indexer {
             if (!hasBall[nextIndex]) {
                 intakeIndex = nextIndex;
                 setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
-                return;
+                updateIntakePos();
+                if (!hasBall[intakeIndex]) {
+                    return;
+                }
             }
         }
     }
@@ -255,7 +254,10 @@ public class Indexer {
             if (!hasBall[prevIndex]) {
                 intakeIndex = prevIndex;
                 setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
-                return;
+                updateIntakePos();
+                if (!hasBall[intakeIndex]) {
+                    return;
+                }
             }
         }
     }
@@ -284,11 +286,13 @@ public class Indexer {
         for (int i = 1; i < SHOOT_ANGLES.length; i++) {
             int nextShootIndex = (shootIndex + i) % SHOOT_ANGLES.length;
             int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[nextShootIndex];
-
             if (hasBall[associatedIntakeIndex]) {
                 shootIndex = nextShootIndex;
                 setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
-                return;
+                updateShootingPos();
+                if (!hasBall[associatedIntakeIndex]) {
+                    return;
+                }
             }
         }
     }
@@ -299,11 +303,13 @@ public class Indexer {
         for (int i = 1; i < SHOOT_ANGLES.length; i++) {
             int prevShootIndex = (shootIndex - i + SHOOT_ANGLES.length) % SHOOT_ANGLES.length;
             int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[prevShootIndex];
-
             if (hasBall[associatedIntakeIndex]) {
                 shootIndex = prevShootIndex;
                 setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
-                return;
+                updateShootingPos();
+                if (!hasBall[associatedIntakeIndex]) {
+                    return;
+                }
             }
         }
     }
@@ -312,9 +318,16 @@ public class Indexer {
         this.indexerMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 
-    public void update() {
+    public void updateIntakePos() {
         if (intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM) < INTAKE_DISTANCE_THRESHOLD) {
             hasBall[intakeIndex] = true;
+        }
+    }
+
+    public void updateShootingPos() {
+        if (shootColorAndDistanceSensor.getDistance(DistanceUnit.CM) > INTAKE_DISTANCE_THRESHOLD) {
+            int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[shootIndex];
+            hasBall[associatedIntakeIndex] = false;
         }
     }
 
@@ -336,5 +349,22 @@ public class Indexer {
 
     public double getBackColor() {
         return shootColorAndDistanceSensor.getLightDetected();
+    }
+
+    public boolean hasBalls() {
+        return hasBall[0] || hasBall[1] || hasBall[2];
+    }
+
+    public boolean hasAllBalls() {
+        return hasBall[0] && hasBall[1] && hasBall[2];
+    }
+
+    public boolean hasBallInShootingPosition() {
+        int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[shootIndex];
+        return hasBall[associatedIntakeIndex];
+    }
+
+    public boolean hasBallInIntakePosition() {
+        return hasBall[intakeIndex];
     }
 }

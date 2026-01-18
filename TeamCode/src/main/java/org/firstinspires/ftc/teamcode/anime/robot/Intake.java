@@ -18,4 +18,8 @@ public class Intake {
     public void start(double power) {
         Utils.setSafePower(this.intakeMotor, power);
     }
+
+    public void stop() {
+        this.intakeMotor.setPower(0);
+    }
 }

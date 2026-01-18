@@ -52,4 +52,8 @@ public class Shooter {
     public void resetEncoder() {
         this.shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
+
+    public boolean isAtVelocity(double flyWheelVelocity) {
+        return Math.abs(getVelocity() - flyWheelVelocity) < 10;
+    }
 }

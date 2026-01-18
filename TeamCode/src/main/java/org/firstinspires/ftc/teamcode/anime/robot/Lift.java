@@ -20,4 +20,8 @@ public class Lift {
     public void start(double power) {
         Utils.setSafePower(this.liftMotor, power);
     }
+
+    public void stop() {
+        this.liftMotor.setPower(0);
+    }
 }
