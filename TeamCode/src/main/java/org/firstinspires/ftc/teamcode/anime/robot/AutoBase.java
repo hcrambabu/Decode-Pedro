@@ -15,7 +15,7 @@ public abstract class AutoBase extends OpMode {
     private static final double PATH_TIMEOUT = 2.0;
     private static final double PICKUP_DISTANCE = 30;
 
-    private enum ActionState {
+    protected enum ActionState {
         SHOOT,
         GO_TO_PICKUP_POSE,
         PICKUP,
