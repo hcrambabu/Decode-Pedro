@@ -16,7 +16,7 @@ public class AnimeAutoRedBottom extends AutoBase {
     public void assignPosesToVariables() {
         startPose = new Pose(87, 9, Math.toRadians(90));
         endPose = new Pose(39, 33, Math.toRadians(90));
-        shootPose = new Pose(87, 15, Math.toRadians(60));
+        shootPose = new Pose(87, 15, Math.toRadians(70));
 
         pickupOrderPoses = new Pose[]{
                 new Pose(100, 35.5, Math.toRadians(0)),
@@ -24,7 +24,7 @@ public class AnimeAutoRedBottom extends AutoBase {
                 new Pose(100, 83.5, Math.toRadians(0))
         };
         isRed = true;
-        shootingVelocity = 500;
+        shootingVelocity = 1700;
     }
 }
 

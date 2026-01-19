@@ -175,10 +175,13 @@ public abstract class AutoBase extends OpMode {
                     if (!follower.isBusy() || pathTimer.getElapsedTimeSeconds() > PATH_TIMEOUT) {
                         if(!robot.isShooting()) {
                             robot.startShooting();
-                        } else if(!robot.isBusy()) {
-                            robot.startShooting();
-                            follower.followPath(pickupOrderPathChains[i], true);
-                            setActionState(ActionState.GO_TO_PICKUP_POSE);
+                        } else {
+                            boolean shouldMoveToPickup = !robot.isBusy();
+                            if (shouldMoveToPickup) {
+                                robot.stopShooting();
+                                follower.followPath(pickupOrderPathChains[i], true);
+                                setActionState(ActionState.GO_TO_PICKUP_POSE);
+                            }
                         }
                     }
                     break;
