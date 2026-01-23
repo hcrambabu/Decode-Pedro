@@ -49,6 +49,7 @@ public class AnimeTeleop extends OpMode {
     private double[] shooterVelocityPresets = {1000, 2000, 3000, 4000, 5000, 5000};
     private boolean dpadLeftWasPressed = false;
     private boolean dpadRightWasPressed = false;
+    private final double ALIGN_KP = 0.03;
 
     @Override
     public void init() {
@@ -97,22 +98,31 @@ public class AnimeTeleop extends OpMode {
         telemetryM.update();
 
         if (!automatedDrive) {
-            //Make the last parameter false for field-centric
-            //In case the drivers want to use a "slowMode" you can scale the vectors
-            //This is the normal version to use in the TeleOp
-            if (!driveInSlowMode) follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y,
-                    -gamepad1.left_stick_x,
-                    -gamepad1.right_stick_x * 0.5, // for finer rotation control
-                    true // Robot Centric
-            );
-                //This is how it looks with slowMode on
-            else follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y * driveSlowModeMultiplier,
-                    -gamepad1.left_stick_x * driveSlowModeMultiplier,
-                    -gamepad1.right_stick_x * driveSlowModeMultiplier,
-                    true // Robot Centric
-            );
+            double drivePowerX = -gamepad1.left_stick_y;
+            double drivePowerY = -gamepad1.left_stick_x;
+            double turnPower = -gamepad1.right_stick_x;
+
+            if (driveInSlowMode) {
+                drivePowerX *= driveSlowModeMultiplier;
+                drivePowerY *= driveSlowModeMultiplier;
+                turnPower *= driveSlowModeMultiplier;
+            } else {
+                turnPower *= 0.5;
+            }
+
+            // Auto-align to AprilTag
+            if (gamepad1.a) {
+                int tagId = limelight.getAprilTagId();
+                if (tagId != -1) {
+                    Double tx = limelight.getHorizontalOffset(tagId);
+                    if (tx != null) {
+                        turnPower = -tx * ALIGN_KP;
+                        telemetryM.debug("Aligning to Tag " + tagId + " tx: " + tx);
+                    }
+                }
+            }
+
+            follower.setTeleOpDrive(drivePowerX, drivePowerY, turnPower, true);
         }
 //        //Automated PathFollowing
 //        if (gamepad1.aWasPressed()) {
@@ -177,11 +187,43 @@ public class AnimeTeleop extends OpMode {
             indexerSlow = !indexerSlow;
         }
 
-        boolean isShooting = gamepad2.right_trigger >= 0.2 && gamepad2.left_trigger > 0 && (gamepad2.dpad_right || gamepad2.dpad_left);
+        boolean isShooting = gamepad2.right_trigger >= 0.2 && gamepad2.left_trigger > 0.2;
+        boolean isIntaking = Math.abs(gamepad2.right_stick_y) > 0.2;
         
         if (isShooting) {
-            indexer.forceFeed(1.0);
+//            Log.i("AnimeTeleop", "Shooting Mode");
+            indexer.updateShootingPos();
+            if (indexer.hasAllBalls()) {
+                indexer.setLight(1.0);
+            } else {
+                indexer.setLight(0.0);
+            }
+            if(dpadRightWasPressed != gamepad2.dpad_right && gamepad2.dpad_right) {
+                indexer.goToNextOccupiedShooterAngle();
+            } else if(dpadLeftWasPressed != gamepad2.dpad_left && gamepad2.dpad_left) {
+                indexer.goToPrevOccupiedShooterAngle();
+            } else {
+                indexer.forceFeed(1.0 * Math.abs(gamepad2.left_stick_x));
+            }
+        } else if (isIntaking) {
+//            Log.i("AnimeTeleop", "Intake Mode");
+            indexer.updateIntakePos();
+            if (indexer.hasAllBalls()) {
+                indexer.setLight(1.0);
+            } else {
+                indexer.setLight(0.0);
+                if (indexer.hasBallInIntakePosition()) {
+                    indexer.goToNextEmptyIntakeAngle();
+                } else if(dpadRightWasPressed != gamepad2.dpad_right && gamepad2.dpad_right) {
+                    indexer.goToNextIntakeAngle();
+                } else if(dpadLeftWasPressed != gamepad2.dpad_left && gamepad2.dpad_left) {
+                    indexer.goToPrevIntakeAngle();
+                } else {
+                    indexer.start(gamepad2.left_stick_x, indexerSlow);
+                }
+            }
         } else {
+//            Log.i("AnimeTeleop", "No Mode");
             if(dpadRightWasPressed != gamepad2.dpad_right && gamepad2.dpad_right) {
                 indexer.goToNextIntakeAngle();
             } else if(dpadLeftWasPressed != gamepad2.dpad_left && gamepad2.dpad_left) {

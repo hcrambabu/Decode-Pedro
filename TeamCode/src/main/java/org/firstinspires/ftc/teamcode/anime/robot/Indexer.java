@@ -36,6 +36,7 @@ public class Indexer {
     private int intakeIndex = 0;
     private int shootIndex = 0;
     private boolean[] hasBall = {false, false, false};
+    private BallColor[] ballColors = {BallColor.UNKNOWN, BallColor.UNKNOWN, BallColor.UNKNOWN};
 
     public Indexer(HardwareMap hardwareMap, Telemetry telemetry, boolean restMotorPosition) {
         this.indexerMotor = hardwareMap.get(DcMotorEx.class, "indexer");
@@ -56,6 +57,8 @@ public class Indexer {
         if (isBusy(power != 0)) {
             return;
         }
+        calculateIntakeIndex();
+        calculateShootIndex();
         if (slow) {
             this.indexerMotor.setPower(power * SLOW_SPEED_MULTIPLIER);
         } else {
@@ -69,6 +72,8 @@ public class Indexer {
 
     public void forceFeed(double power) {
         this.indexerMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        calculateIntakeIndex();
+        calculateShootIndex();
         this.indexerMotor.setPower(power * SPEED_MULTIPLIER);
     }
 
@@ -222,6 +227,7 @@ public class Indexer {
 
         // Increment index
         intakeIndex = (intakeIndex + 1) % INTAKE_ANGLES.length;
+        shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
 
         setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
     }
@@ -231,6 +237,7 @@ public class Indexer {
 
         // Decrement index
         intakeIndex = (intakeIndex - 1 + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
+        shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
 
         setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
     }
@@ -242,6 +249,7 @@ public class Indexer {
             int nextIndex = (intakeIndex + i) % INTAKE_ANGLES.length;
             if (!hasBall[nextIndex]) {
                 intakeIndex = nextIndex;
+                shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
                 setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
                 updateIntakePos();
                 if (!hasBall[intakeIndex]) {
@@ -260,6 +268,7 @@ public class Indexer {
             int prevIndex = (intakeIndex - i + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
             if (!hasBall[prevIndex]) {
                 intakeIndex = prevIndex;
+                shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
                 setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
                 updateIntakePos();
                 if (!hasBall[intakeIndex]) {
@@ -276,6 +285,7 @@ public class Indexer {
 
         // Increment index
         shootIndex = (shootIndex + 1) % SHOOT_ANGLES.length;
+        intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
 
         setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
     }
@@ -285,6 +295,7 @@ public class Indexer {
 
         // Decrement index
         shootIndex = (shootIndex - 1 + SHOOT_ANGLES.length) % SHOOT_ANGLES.length;
+        intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
 
         setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
     }
@@ -297,6 +308,7 @@ public class Indexer {
             int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[nextShootIndex];
             if (hasBall[associatedIntakeIndex]) {
                 shootIndex = nextShootIndex;
+                intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
                 setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
                 updateShootingPos();
                 if (hasBall[associatedIntakeIndex]) {
@@ -314,6 +326,7 @@ public class Indexer {
             int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[prevShootIndex];
             if (hasBall[associatedIntakeIndex]) {
                 shootIndex = prevShootIndex;
+                intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
                 setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
                 updateShootingPos();
                 if (hasBall[associatedIntakeIndex]) {
@@ -334,6 +347,7 @@ public class Indexer {
         if (diff > 180) {
             diff = 360 - diff;
         }
+        Log.i("Indexer", "isAtAngle: Current Angle: " + currentAngle + ", Target Angle: " + targetAngle + ", Diff: " + diff);
         return diff < ANGLE_TOLERANCE;
     }
 
@@ -357,6 +371,7 @@ public class Indexer {
             int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[shootIndex];
             Log.i("Indexer", shootIndex + " : " + false);
             hasBall[associatedIntakeIndex] = false;
+            indexerLight.setPosition(0.0);
         }
     }
 
@@ -401,5 +416,9 @@ public class Indexer {
         hasBall[0] = true;
         hasBall[1] = true;
         hasBall[2] = true;
+    }
+
+    public void setLight(double position) {
+        this.indexerLight.setPosition(position);
     }
 }

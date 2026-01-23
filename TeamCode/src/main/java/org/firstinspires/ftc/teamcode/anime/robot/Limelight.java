@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.anime.robot;
 import android.util.Log;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -10,6 +11,9 @@ import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Limelight {
 
@@ -93,5 +97,41 @@ public class Limelight {
             Log.i("Limelight", "Exception in getAprilTagId", e);
         }
         return -1;
+    }
+
+    public List<Integer> getAllAprilTagId() {
+        List<Integer> resultList = new ArrayList<>();
+        try {
+            YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
+            limelight.updateRobotOrientation(orientation.getYaw());
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                if (!result.getFiducialResults().isEmpty()) {
+                    int id = result.getFiducialResults().get(0).getFiducialId();
+                    resultList.add(id);
+                    Log.i("Limelight", "Found AprilTagId: " + id);
+                }
+            }
+        } catch (Exception e) {
+            Log.i("Limelight", "Exception in getAprilTagId", e);
+        }
+        return resultList;
+    }
+
+    public Double getHorizontalOffset(int tagId) {
+        try {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                for (LLResultTypes.FiducialResult fr : fiducials) {
+                    if (fr.getFiducialId() == tagId) {
+                        return fr.getTargetXDegrees();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.i("Limelight", "Exception in getHorizontalOffset", e);
+        }
+        return null; // Return null if not found
     }
 }

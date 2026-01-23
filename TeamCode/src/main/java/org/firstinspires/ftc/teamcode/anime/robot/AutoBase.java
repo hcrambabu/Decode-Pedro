@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.anime.robot;
 
+import static org.firstinspires.ftc.teamcode.anime.robot.PoseStorage.pattrenNumber;
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -9,6 +11,8 @@ import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+
+import java.util.List;
 
 public abstract class AutoBase extends OpMode {
 
@@ -43,8 +47,6 @@ public abstract class AutoBase extends OpMode {
     private PathChain[] pickupOrderPathChains;
     private PathChain[] shootPathChains;
     private PathChain[] pickupEndPathChains;
-
-    protected int currentPattern = 0;
 
     protected Follower follower;
     protected Timer pathTimer, actionTimer, opmodeTimer;
@@ -105,7 +107,7 @@ public abstract class AutoBase extends OpMode {
     }
 
     public void updateTelemetry() {
-        telemetry.addData("April Tag Pattern", currentPattern);
+        telemetry.addData("April Tag Pattern", pattrenNumber);
         telemetry.addData("Path State", pathState);
         telemetry.addData("Path Time", pathTimer.getElapsedTimeSeconds());
         telemetry.addData("Action State", actionState.name());
@@ -125,13 +127,16 @@ public abstract class AutoBase extends OpMode {
     }
 
     public void findPattern() {
-        while (currentPattern == 0 || opmodeTimer.getElapsedTimeSeconds() < 5.0) {
-            int aprilTagId = limelight.getAprilTagId();
-            if (aprilTagId >= GPP_TAG_ID && aprilTagId <= PPG_TAG_ID) {
-                currentPattern = aprilTagId;
-            } else {
-                idle();
+        while (opmodeTimer.getElapsedTimeSeconds() < 5.0) {
+            List<Integer> aprilTagIds = limelight.getAllAprilTagId();
+            for (int aprilTagId : aprilTagIds) {
+                telemetry.addData("Detected AprilTag ID", aprilTagId);
+                if (aprilTagId >= GPP_TAG_ID && aprilTagId <= PPG_TAG_ID) {
+                    pattrenNumber = aprilTagId;
+                    break;
+                }
             }
+            idle();
             updateTelemetry();
         }
     }
