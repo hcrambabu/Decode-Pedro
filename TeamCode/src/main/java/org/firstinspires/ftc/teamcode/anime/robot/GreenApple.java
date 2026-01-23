@@ -29,6 +29,9 @@ public class GreenApple {
     private RobotState robotState = RobotState.IDLE;
     private double flyWheelVelocity = 0;
 
+    // Track if intake is manually running
+    private boolean intakeRunning = false;
+
     public GreenApple(HardwareMap hardwareMap, Telemetry telemetry, boolean resetIndexers) {
         this.telemetry = telemetry;
         shooter = new Shooter(hardwareMap, telemetry);
@@ -39,25 +42,11 @@ public class GreenApple {
         stateTimer = new Timer();
     }
 
-    public Shooter getShooter() {
-        return shooter;
-    }
-
-    public Lift getLift() {
-        return lift;
-    }
-
-    public Intake getIntake() {
-        return intake;
-    }
-
-    public Indexer getIndexer() {
-        return indexer;
-    }
-
-    public Limelight getLimelight() {
-        return limelight;
-    }
+    public Shooter getShooter() { return shooter; }
+    public Lift getLift() { return lift; }
+    public Intake getIntake() { return intake; }
+    public Indexer getIndexer() { return indexer; }
+    public Limelight getLimelight() { return limelight; }
 
     public void setFlyWheelShootingVelocity(double velocity) {
         flyWheelVelocity = velocity;
@@ -72,6 +61,7 @@ public class GreenApple {
         telemetry.addData("Robot State", robotState.name());
         telemetry.addData("Robot State Timer: ", stateTimer.getElapsedTimeSeconds());
         telemetry.addData("Balls", Arrays.toString(indexer.getBallStatus()));
+        telemetry.addData("Intake Running?", intakeRunning);
     }
 
     public void update() {
@@ -98,6 +88,7 @@ public class GreenApple {
                         shooter.setVelocity(0, true);
                         lift.stop();
                         intake.start(-1.0);
+                        intakeRunning = true;
                         indexer.goToNextEmptyIntakeAngle();
                         setRobotState(RobotState.COLLECT_BALL);
                     }
@@ -106,8 +97,8 @@ public class GreenApple {
             case COLLECT_BALL:
                 indexer.updateIntakePos();
                 if(indexer.hasAllBalls() || stateTimer.getElapsedTimeSeconds() > 10.0) {
-
                     intake.stop();
+                    intakeRunning = false;
                     setRobotState(RobotState.IDLE);
                 } else if (indexer.hasBallInIntakePosition()) {
                     indexer.goToNextEmptyIntakeAngle();
@@ -119,18 +110,25 @@ public class GreenApple {
     }
 
     private boolean shooting = false;
-    public void startShooting() {
-        shooting = true;
-    }
-    public void stopShooting() {
-        shooting = false;
+    public void startShooting() { shooting = true; }
+    public void stopShooting() { shooting = false; }
+    public boolean isShooting() { return shooting; }
+    public boolean isBusy() { return robotState != RobotState.IDLE && robotState != RobotState.COLLECT_BALL; }
+
+    // =========================
+    // Intake Control Methods
+    // =========================
+    public void startIntake() {
+        intake.start(1.0);
+        intakeRunning = true;
     }
 
-    public boolean isShooting() {
-        return shooting;
+    public void stopIntake() {
+        intake.stop();
+        intakeRunning = false;
     }
 
-    public boolean isBusy() {
-        return robotState != RobotState.IDLE && robotState != RobotState.COLLECT_BALL;
+    public boolean isIntaking() {
+        return intakeRunning;
     }
 }
