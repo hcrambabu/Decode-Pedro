@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.anime.robot;
 
 public enum BallColor {
 
-    UNKNOWN,
+    EMPTY,
     PURPLE,
     GREEN
 }

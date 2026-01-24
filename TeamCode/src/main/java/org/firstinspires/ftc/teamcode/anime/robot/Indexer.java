@@ -10,33 +10,39 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.Objects;
+
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 public class Indexer {
     private static final double TICKS_PER_REV = 751.8;
     private static final double TIME_OUT = 1.0;
+    
+    // Slot Configuration:
+    // Slot 0: Intake at 60, Shoot at 120
+    // Slot 1: Intake at 180, Shoot at 0
+    // Slot 2: Intake at 300, Shoot at 240
     private static final double[] INTAKE_ANGLES = {60, 180, 300};
-    private static final double[] SHOOT_ANGLES = {0, 120, 240};
-    private static final int[] SHOOT_TO_INTAKE_MAP = {1, 0, 2};
-    private static final double MANUAL_INTERVENTION_THRESHOLD = 45.0;
+    private static final double[] SHOOT_ANGLES = {120, 0, 240};
+    
     private static final double SPEED_MULTIPLIER = 0.6;
     private static final double SLOW_SPEED_MULTIPLIER = 0.1;
-    private static final double INTAKE_DISTANCE_THRESHOLD = 2.0;
-    private static final double SHOOT_DISTANCE_THRESHOLD = 1.5;
+    private static final double LIGHT_THRESHOLD = 0.4; // Tuned based on logs: Empty=0.17, Ball=1.0
     private static final double ANGLE_TOLERANCE = 10.0;
 
     private final DcMotorEx indexerMotor;
-    private ColorRangeSensor intakeColorAndDistanceSensor;
-    private ColorRangeSensor shootColorAndDistanceSensor;
+    private final ColorRangeSensor intakeColorAndDistanceSensor;
+    private final ColorRangeSensor shootColorAndDistanceSensor;
 
-    private Servo indexerLight;
+    private final Servo indexerLight;
     private final ElapsedTime timer;
     private Telemetry telemetry;
-    private int intakeIndex = 0;
-    private int shootIndex = 0;
-    private boolean[] hasBall = {false, false, false};
-    private BallColor[] ballColors = {BallColor.UNKNOWN, BallColor.UNKNOWN, BallColor.UNKNOWN};
+
+    private final BallColor[] ballColors = {BallColor.EMPTY, BallColor.EMPTY, BallColor.EMPTY};
+    private final LinkedList<BallColor> patternQueue = new LinkedList<>();
 
     public Indexer(HardwareMap hardwareMap, Telemetry telemetry, boolean restMotorPosition) {
         this.indexerMotor = hardwareMap.get(DcMotorEx.class, "indexer");
@@ -48,8 +54,6 @@ public class Indexer {
         timer = new ElapsedTime();
         if (restMotorPosition) {
             indexerMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        } else {
-            syncToPhysicalPosition();
         }
     }
 
@@ -57,14 +61,13 @@ public class Indexer {
         if (isBusy(power != 0)) {
             return;
         }
-        calculateIntakeIndex();
-        calculateShootIndex();
         if (slow) {
             this.indexerMotor.setPower(power * SLOW_SPEED_MULTIPLIER);
         } else {
             this.indexerMotor.setPower(power * SPEED_MULTIPLIER);
         }
     }
+
     public void stop() {
         this.indexerMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         this.indexerMotor.setPower(0);
@@ -72,8 +75,6 @@ public class Indexer {
 
     public void forceFeed(double power) {
         this.indexerMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        calculateIntakeIndex();
-        calculateShootIndex();
         this.indexerMotor.setPower(power * SPEED_MULTIPLIER);
     }
 
@@ -95,288 +96,265 @@ public class Indexer {
         return this.indexerMotor.getCurrentPosition();
     }
 
-    /**
-     * Calculates the current angle based on encoder ticks.
-     * Assumes start position was 0.
-     */
     public double getAngle() {
         return (indexerMotor.getCurrentPosition() / TICKS_PER_REV) * 360.0;
-    }
-
-    /**
-     * Explicitly sets the internal state (intakeIndex and shootIndex) to match the current physical motor position.
-     * Call this in init() or if you suspect the robot was moved manually while disabled.
-     */
-    public void syncToPhysicalPosition() {
-        double currentAngle = getAngle();
-        this.intakeIndex = getClosestIntakeIndex(currentAngle);
-        this.shootIndex = getClosestShootIndex(currentAngle);
-    }
-
-    private int getClosestIntakeIndex(double currentAngle) {
-        int closestIndex = 0;
-        double minDifference = Double.MAX_VALUE;
-
-        // Normalize current angle to 0-360
-        double normalizedAngle = currentAngle % 360;
-        if (normalizedAngle < 0) normalizedAngle += 360;
-
-        for (int i = 0; i < INTAKE_ANGLES.length; i++) {
-            double diff = Math.abs(normalizedAngle - INTAKE_ANGLES[i]);
-            double diffWrapped = 360 - diff;
-            double shortestDiff = Math.min(diff, diffWrapped);
-
-            if (shortestDiff < minDifference) {
-                minDifference = shortestDiff;
-                closestIndex = i;
-            }
-        }
-        return closestIndex;
-    }
-
-    private int getClosestShootIndex(double currentAngle) {
-        int closestIndex = 0;
-        double minDifference = Double.MAX_VALUE;
-
-        // Normalize current angle to 0-360
-        double normalizedAngle = currentAngle % 360;
-        if (normalizedAngle < 0) normalizedAngle += 360;
-
-        for (int i = 0; i < SHOOT_ANGLES.length; i++) {
-            double diff = Math.abs(normalizedAngle - SHOOT_ANGLES[i]);
-            double diffWrapped = 360 - diff;
-            double shortestDiff = Math.min(diff, diffWrapped);
-
-            if (shortestDiff < minDifference) {
-                minDifference = shortestDiff;
-                closestIndex = i;
-            }
-        }
-        return closestIndex;
-    }
-
-    public void calculateIntakeIndex() {
-        double currentAngle = getAngle();
-
-        // Normalize angle for comparison
-        double normalizedAngle = currentAngle % 360;
-        if (normalizedAngle < 0) normalizedAngle += 360;
-
-        // Check for manual intervention
-        // Calculate distance between current physical angle and what we THINK is the target
-        // Calculate distance between current physical angle and what we THINK is the target
-        double errorFromState = Math.abs(normalizedAngle - INTAKE_ANGLES[intakeIndex]);
-        if (errorFromState > 180) errorFromState = 360 - errorFromState;
-
-        // If error is large, the user moved the motor manually. Sync state first.
-        if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
-            intakeIndex = getClosestIntakeIndex(currentAngle);
-        }
-    }
-
-    public void calculateShootIndex() {
-        double currentAngle = getAngle();
-
-        // Normalize angle for comparison
-        double normalizedAngle = currentAngle % 360;
-        if (normalizedAngle < 0) normalizedAngle += 360;
-
-        // Check for manual intervention
-        double errorFromState = Math.abs(normalizedAngle - SHOOT_ANGLES[shootIndex]);
-        if (errorFromState > 180) errorFromState = 360 - errorFromState;
-
-        if (errorFromState > MANUAL_INTERVENTION_THRESHOLD) {
-            shootIndex = getClosestShootIndex(currentAngle);
-        }
-    }
-
-    /**
-     * Sets the target angle.
-     * Calculates the shortest path to the target angle (handling wrap-around).
-     */
-    public void setTargetAngle(double targetAngleDegrees, double power) {
-        double currentAngle = getAngle();
-
-        // Calculate raw difference
-        double difference = targetAngleDegrees - currentAngle;
-
-        // Robust Normalize to [-180, 180]
-        // This handles cases where currentAngle is negative (e.g. -290)
-        // or effectively > 360 away.
-        double delta = (difference % 360 + 360) % 360; // Normalize to [0, 360)
-
-        if (delta > 180) {
-            delta -= 360; // Shift to [-180, 180]
-        }
-
-        // Calculate target ticks relative to CURRENT TOTAL position
-        int currentPosTicks = indexerMotor.getCurrentPosition();
-        int deltaTicks = (int) ((delta / 360.0) * TICKS_PER_REV);
-        int targetTicks = currentPosTicks + deltaTicks;
-
-        Log.i("Indexer", "Setting target angle to " + targetAngleDegrees + " degrees (delta: " + delta + ", target ticks: " + targetTicks + ")");
-
-        indexerMotor.setTargetPosition(targetTicks);
-        indexerMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        indexerMotor.setPower(power);
-        timer.reset();
-    }
-
-    public void goToNextIntakeAngle() {
-        calculateIntakeIndex();
-
-        // Increment index
-        intakeIndex = (intakeIndex + 1) % INTAKE_ANGLES.length;
-        shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
-
-        setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
-    }
-
-    public void goToPrevIntakeAngle() {
-        calculateIntakeIndex();
-
-        // Decrement index
-        intakeIndex = (intakeIndex - 1 + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
-        shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
-
-        setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
-    }
-
-    public void goToNextEmptyIntakeAngle() {
-        calculateIntakeIndex();
-
-        for (int i = 1; i < INTAKE_ANGLES.length; i++) {
-            int nextIndex = (intakeIndex + i) % INTAKE_ANGLES.length;
-            if (!hasBall[nextIndex]) {
-                intakeIndex = nextIndex;
-                shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
-                setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
-                updateIntakePos();
-                if (!hasBall[intakeIndex]) {
-                    this.indexerLight.setPosition(0.0);
-                    return;
-                }
-            }
-        }
-        this.indexerLight.setPosition(1.0);
-    }
-
-    public void goToPrevEmptyIntakeAngle() {
-        calculateIntakeIndex();
-
-        for (int i = 1; i < INTAKE_ANGLES.length; i++) {
-            int prevIndex = (intakeIndex - i + INTAKE_ANGLES.length) % INTAKE_ANGLES.length;
-            if (!hasBall[prevIndex]) {
-                intakeIndex = prevIndex;
-                shootIndex = getClosestShootIndex(INTAKE_ANGLES[intakeIndex]);
-                setTargetAngle(INTAKE_ANGLES[intakeIndex], SPEED_MULTIPLIER);
-                updateIntakePos();
-                if (!hasBall[intakeIndex]) {
-                    this.indexerLight.setPosition(0.0);
-                    return;
-                }
-            }
-        }
-        this.indexerLight.setPosition(1.0);
-    }
-
-    public void goToNextShootAngle() {
-        calculateShootIndex();
-
-        // Increment index
-        shootIndex = (shootIndex + 1) % SHOOT_ANGLES.length;
-        intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
-
-        setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
-    }
-
-    public void goToPrevShootAngle() {
-        calculateShootIndex();
-
-        // Decrement index
-        shootIndex = (shootIndex - 1 + SHOOT_ANGLES.length) % SHOOT_ANGLES.length;
-        intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
-
-        setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
-    }
-
-    public void goToNextOccupiedShooterAngle() {
-        calculateShootIndex();
-
-        for (int i = 1; i < SHOOT_ANGLES.length; i++) {
-            int nextShootIndex = (shootIndex + i) % SHOOT_ANGLES.length;
-            int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[nextShootIndex];
-            if (hasBall[associatedIntakeIndex]) {
-                shootIndex = nextShootIndex;
-                intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
-                setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
-                updateShootingPos();
-                if (hasBall[associatedIntakeIndex]) {
-                    return;
-                }
-            }
-        }
-    }
-
-    public void goToPrevOccupiedShooterAngle() {
-        calculateShootIndex();
-
-        for (int i = 1; i < SHOOT_ANGLES.length; i++) {
-            int prevShootIndex = (shootIndex - i + SHOOT_ANGLES.length) % SHOOT_ANGLES.length;
-            int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[prevShootIndex];
-            if (hasBall[associatedIntakeIndex]) {
-                shootIndex = prevShootIndex;
-                intakeIndex = getClosestIntakeIndex(SHOOT_ANGLES[shootIndex]);
-                setTargetAngle(SHOOT_ANGLES[shootIndex], SPEED_MULTIPLIER);
-                updateShootingPos();
-                if (hasBall[associatedIntakeIndex]) {
-                    return;
-                }
-            }
-        }
     }
 
     public void resetEncoder() {
         this.indexerMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 
-    private boolean isAtAngle(double targetAngle) {
-        double currentAngle = getAngle();
-        double diff = Math.abs(currentAngle - targetAngle);
-        diff = diff % 360;
-        if (diff > 180) {
-            diff = 360 - diff;
+    // --- Helpers ---
+
+    private double normalizeAngle(double angle) {
+        double normalized = angle % 360;
+        if (normalized < 0) normalized += 360;
+        return normalized;
+    }
+
+    private int getClosestSlot(double targetAngle, double[] angleArr) {
+        int closestIndex = 0;
+        double minDifference = Double.MAX_VALUE;
+        double currentAngle = normalizeAngle(targetAngle);
+
+        for (int i = 0; i < angleArr.length; i++) {
+            double diff = Math.abs(currentAngle - angleArr[i]);
+            double diffWrapped = 360 - diff;
+            double shortestDiff = Math.min(diff, diffWrapped);
+
+            if (shortestDiff < minDifference) {
+                minDifference = shortestDiff;
+                closestIndex = i;
+            }
         }
-        Log.i("Indexer", "isAtAngle: Current Angle: " + currentAngle + ", Target Angle: " + targetAngle + ", Diff: " + diff);
+        return closestIndex;
+    }
+
+    private int getCurrentIntakeSlot() {
+        return getClosestSlot(getAngle(), INTAKE_ANGLES);
+    }
+
+    private int getCurrentShootSlot() {
+        return getClosestSlot(getAngle(), SHOOT_ANGLES);
+    }
+
+    private void setTargetAngle(double targetAngleDegrees, double power) {
+        double currentAngle = getAngle();
+        double difference = targetAngleDegrees - currentAngle;
+        double delta = (difference % 360 + 360) % 360;
+        if (delta > 180) delta -= 360;
+
+        int currentPosTicks = indexerMotor.getCurrentPosition();
+        int deltaTicks = (int) ((delta / 360.0) * TICKS_PER_REV);
+        int targetTicks = currentPosTicks + deltaTicks;
+
+//        Log.i("Indexer", "Target: " + targetAngleDegrees + ", Delta: " + delta + ", Ticks: " + targetTicks);
+        indexerMotor.setTargetPosition(targetTicks);
+        indexerMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        indexerMotor.setPower(power);
+        timer.reset();
+    }
+
+    // --- Navigation ---
+
+    public void goToNextIntakeAngle() {
+        int currentSlot = getCurrentIntakeSlot();
+        int nextSlot = (currentSlot + 1) % 3;
+        setTargetAngle(INTAKE_ANGLES[nextSlot], SPEED_MULTIPLIER);
+    }
+
+    public void goToPrevIntakeAngle() {
+        int currentSlot = getCurrentIntakeSlot();
+        int prevSlot = (currentSlot - 1 + 3) % 3;
+        setTargetAngle(INTAKE_ANGLES[prevSlot], SPEED_MULTIPLIER);
+    }
+
+    public void goToNextEmptyIntakeAngle() {
+        int currentSlot = getCurrentIntakeSlot();
+        // Check next slots for empty space
+        for (int i = 1; i < 3; i++) {
+            int checkSlot = (currentSlot + i) % 3;
+            if (ballColors[checkSlot] == BallColor.EMPTY) {
+                setTargetAngle(INTAKE_ANGLES[checkSlot], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+        // If all full, maybe just turn on light or stay put
+        this.indexerLight.setPosition(1.0);
+    }
+    
+    public void goToPrevEmptyIntakeAngle() {
+        int currentSlot = getCurrentIntakeSlot();
+        for (int i = 1; i < 3; i++) {
+            int checkSlot = (currentSlot - i + 3) % 3;
+            if (ballColors[checkSlot] == BallColor.EMPTY) {
+                setTargetAngle(INTAKE_ANGLES[checkSlot], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+        this.indexerLight.setPosition(1.0);
+    }
+
+    public void goToNextShootAngle() {
+        int currentSlot = getCurrentShootSlot();
+        int nextSlot = (currentSlot + 1) % 3;
+        setTargetAngle(SHOOT_ANGLES[nextSlot], SPEED_MULTIPLIER);
+    }
+    
+    public void goToPrevShootAngle() {
+        int currentSlot = getCurrentShootSlot();
+        int prevSlot = (currentSlot - 1 + 3) % 3;
+        setTargetAngle(SHOOT_ANGLES[prevSlot], SPEED_MULTIPLIER);
+    }
+
+    private boolean isAtAngle(double targetAngle) {
+        double current = getAngle();
+        double diff = Math.abs(current - targetAngle) % 360;
+        if (diff > 180) diff = 360 - diff;
         return diff < ANGLE_TOLERANCE;
     }
 
-    public void updateIntakePos() {
-        if (!isAtAngle(INTAKE_ANGLES[intakeIndex])) {
-            return;
+
+
+    private BallColor detectColor(ColorRangeSensor sensor) {
+        double red = sensor.red();
+        double green = sensor.green();
+        double blue = sensor.blue();
+        double light = sensor.getLightDetected();
+
+        // Log.i("Indexer", "detectColor: ColorSensor: R=" + red + " G=" + green + " B=" + blue + " Light=" + light);
+
+        if (light < LIGHT_THRESHOLD) { 
+            return BallColor.EMPTY;
         }
-//        Log.i("Indexer", "Intake position distance: " + intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM));
-        if (intakeColorAndDistanceSensor.getDistance(DistanceUnit.CM) < INTAKE_DISTANCE_THRESHOLD) {
-            Log.i("Indexer", intakeIndex + " : " + true);
-            hasBall[intakeIndex] = true;
+
+        if (green > red && green > blue) {
+            return BallColor.GREEN;
+        } else {
+            return BallColor.PURPLE;
+        }
+    }
+
+    public void updateIntakePos() {
+        for (int i = 0; i < 3; i++) {
+            if (isAtAngle(INTAKE_ANGLES[i])) {
+                double currentLight = intakeColorAndDistanceSensor.getLightDetected();
+                if (currentLight > LIGHT_THRESHOLD) { // Presence Threshold
+                    BallColor c = detectColor(intakeColorAndDistanceSensor);
+                    if (c != BallColor.EMPTY) {
+                        ballColors[i] = c;
+                    }
+                }
+            }
+        }
+        if (this.hasAllBalls()) {
+            Log.i("Indexer", "All balls collected. " + Arrays.toString(ballColors));
+            this.setLight(1.0);
+        } else {
+            this.setLight(0.0);
         }
     }
 
     public void updateShootingPos() {
-        if (!isAtAngle(SHOOT_ANGLES[shootIndex])) {
+        // Prevent state updates while moving (avoids false positives when a ball rotates out of view)
+        if (indexerMotor.isBusy()) {
             return;
         }
-//        Log.i("Indexer", "Shooting position distance: " + shootColorAndDistanceSensor.getDistance(DistanceUnit.CM));
-        if (shootColorAndDistanceSensor.getDistance(DistanceUnit.CM) > SHOOT_DISTANCE_THRESHOLD) {
-            int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[shootIndex];
-            Log.i("Indexer", shootIndex + " : " + false);
-            hasBall[associatedIntakeIndex] = false;
-            indexerLight.setPosition(0.0);
+
+        for (int i = 0; i < 3; i++) {
+            if (isAtAngle(SHOOT_ANGLES[i])) {
+                if (shootColorAndDistanceSensor.getLightDetected() < LIGHT_THRESHOLD) {
+                    ballColors[i] = BallColor.EMPTY;
+                }
+            }
+        }
+        if (this.hasAllBalls()) {
+            this.setLight(1.0);
+        } else {
+            this.setLight(0.0);
         }
     }
 
+    // --- Navigation (Pattern Aware) ---
+    
+    // Restored for compatibility
+    public void goToNextOccupiedShooterAngle() {
+        int currentSlot = getCurrentShootSlot();
+        for (int i = 1; i < 3; i++) {
+            int checkSlot = (currentSlot + i) % 3;
+            if (ballColors[checkSlot] != BallColor.EMPTY) {
+                setTargetAngle(SHOOT_ANGLES[checkSlot], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+    }
+
+    public void goToPrevOccupiedShooterAngle() {
+        int currentSlot = getCurrentShootSlot();
+        for (int i = 1; i < 3; i++) {
+            int checkSlot = (currentSlot - i + 3) % 3;
+            if (ballColors[checkSlot] != BallColor.EMPTY) {
+                setTargetAngle(SHOOT_ANGLES[checkSlot], SPEED_MULTIPLIER);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Aligns the indexer to the best available ball logic:
+     * 1. If we have the ball for the current pattern step -> Go to it.
+     * 2. If we don't have the pattern ball -> Go to ANY ball.
+     * 3. If we are already at a valid slot -> Stay.
+     */
+    public void alignToBestBall() {
+        if (isBusy(false)) {
+            return;
+        }
+        if (patternQueue.isEmpty()) {
+            BallColor[] patt = PoseStorage.patternMap.getOrDefault(org.firstinspires.ftc.teamcode.anime.robot.PoseStorage.pattrenNumber, new BallColor[]{});
+            for(BallColor c : patt) {
+                patternQueue.offer(c);
+            }
+        }
+        if (patternQueue.isEmpty()) {
+            return;
+        }
+        BallColor targetColor = patternQueue.poll();
+        Log.i("Indexer", "find " + targetColor + ", in " + Arrays.toString(ballColors));
+        int bestSlot = -1;
+        for (int i = 0; i < 3; i++) {
+            if (ballColors[i] == targetColor) {
+                Log.i("Indexer", "Aligning to best ball of color: " + targetColor + " at slot " + i);
+                bestSlot = i;
+                break;
+            }
+        }
+        if (bestSlot == -1) {
+            // No matching color found, pick any occupied slot
+            for (int i = 0; i < 3; i++) {
+                if (ballColors[i] != BallColor.EMPTY) {
+                    bestSlot = i;
+                    break;
+                }
+            }
+        }
+        if (bestSlot == -1) {
+            // No balls available
+            return;
+        }
+        setTargetAngle(SHOOT_ANGLES[bestSlot], SPEED_MULTIPLIER);
+    }
+
+    public void emptyPatternQueue() {
+        patternQueue.clear();
+    }
+
+    // --- Getters ---
+
     public boolean[] getBallStatus() {
-        return hasBall;
+        boolean[] status = new boolean[3];
+        for(int i=0; i<3; i++) status[i] = (ballColors[i] != BallColor.EMPTY);
+        return status;
     }
 
     public double getFrontDistance() {
@@ -394,31 +372,38 @@ public class Indexer {
     public double getBackColor() {
         return shootColorAndDistanceSensor.getLightDetected();
     }
+    
+    // For Telemetry / Debug
+    public double getAngleForSlot(int slot, boolean isIntake) {
+        if(slot < 0 || slot > 2) return 0;
+        return isIntake ? INTAKE_ANGLES[slot] : SHOOT_ANGLES[slot];
+    }
+    
+    public boolean hasAllBalls() {
+        return (ballColors[0] != BallColor.EMPTY) && (ballColors[1] != BallColor.EMPTY) && (ballColors[2] != BallColor.EMPTY);
+    }
 
     public boolean hasBalls() {
-        return hasBall[0] || hasBall[1] || hasBall[2];
+        return (ballColors[0] != BallColor.EMPTY) || (ballColors[1] != BallColor.EMPTY) || (ballColors[2] != BallColor.EMPTY);
     }
-
-    public boolean hasAllBalls() {
-        return hasBall[0] && hasBall[1] && hasBall[2];
-    }
-
+    
     public boolean hasBallInShootingPosition() {
-        int associatedIntakeIndex = SHOOT_TO_INTAKE_MAP[shootIndex];
-        return hasBall[associatedIntakeIndex];
+        return ballColors[getCurrentShootSlot()] != BallColor.EMPTY;
     }
 
     public boolean hasBallInIntakePosition() {
-        return hasBall[intakeIndex];
-    }
-
-    public void setAllBallsTrue() {
-        hasBall[0] = true;
-        hasBall[1] = true;
-        hasBall[2] = true;
+        // Technically "Ball in intake position" means "Is the slot implicitly at the intake populated?"
+        // Simpler: Current Intake Slot is Full?
+        return ballColors[getCurrentIntakeSlot()] != BallColor.EMPTY;
     }
 
     public void setLight(double position) {
         this.indexerLight.setPosition(position);
+    }
+
+    public void setAllBallsTrue() {
+        ballColors[0] = BallColor.PURPLE;
+        ballColors[1] = BallColor.PURPLE;
+        ballColors[2] = BallColor.PURPLE;
     }
 }

@@ -11,9 +11,9 @@ public class PoseStorage {
     // if TeleOp is run without running Auto first.
     public static Pose currentPose = new Pose(0, 0, 0);
 
-    public static int pattrenNumber = PPG_TAG_ID;
+    public static int pattrenNumber = AutoBase.PPG_TAG_ID;
     public static Map<Integer, BallColor[]> patternMap = Map.of(
-            PPG_TAG_ID, new BallColor[]{BallColor.PURPLE, BallColor.PURPLE, BallColor.GREEN},
+            AutoBase.PPG_TAG_ID, new BallColor[]{BallColor.PURPLE, BallColor.PURPLE, BallColor.GREEN},
             AutoBase.PGP_TAG_ID, new BallColor[]{BallColor.PURPLE, BallColor.GREEN, BallColor.PURPLE},
             AutoBase.GPP_TAG_ID, new BallColor[]{BallColor.GREEN, BallColor.PURPLE, BallColor.PURPLE}
     );

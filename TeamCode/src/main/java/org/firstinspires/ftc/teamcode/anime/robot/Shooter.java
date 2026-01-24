@@ -10,7 +10,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class Shooter {
 
-    public static final double MAX_VELOCITY = 200;
+    public static final double MAX_VELOCITY = 2200;
     public static final double GREEN_COLOR_VALUE = 0.5;
     private final DcMotorEx shooterMotor;
     private final Servo rgbLight;

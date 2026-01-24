@@ -49,6 +49,7 @@ public class AnimeTeleop extends OpMode {
     private double[] shooterVelocityPresets = {1000, 2000, 3000, 4000, 5000, 5000};
     private boolean dpadLeftWasPressed = false;
     private boolean dpadRightWasPressed = false;
+    private boolean gamepad2BWasPressed = false;
     private final double ALIGN_KP = 0.03;
 
     @Override
@@ -187,26 +188,34 @@ public class AnimeTeleop extends OpMode {
             indexerSlow = !indexerSlow;
         }
 
+        if(gamepad2.b) {
+            indexer.updateShootingPos();
+            if(gamepad2BWasPressed != gamepad2.b && gamepad2.b) {
+                indexer.alignToBestBall();
+            }
+            if (!indexer.isBusy(false)) {
+                lift.start(1.0);
+            } else {
+                lift.stop();
+            }
+        }
+        gamepad2BWasPressed = gamepad2.b;
+
         boolean isShooting = gamepad2.right_trigger >= 0.2 && gamepad2.left_trigger > 0.2;
         boolean isIntaking = Math.abs(gamepad2.right_stick_y) > 0.2;
-        
         if (isShooting) {
 //            Log.i("AnimeTeleop", "Shooting Mode");
             indexer.updateShootingPos();
-            if (indexer.hasAllBalls()) {
-                indexer.setLight(1.0);
-            } else {
-                indexer.setLight(0.0);
-            }
             if(dpadRightWasPressed != gamepad2.dpad_right && gamepad2.dpad_right) {
-                indexer.goToNextOccupiedShooterAngle();
+                indexer.goToNextShootAngle();
             } else if(dpadLeftWasPressed != gamepad2.dpad_left && gamepad2.dpad_left) {
-                indexer.goToPrevOccupiedShooterAngle();
+                indexer.goToPrevShootAngle();
             } else {
-                indexer.forceFeed(1.0 * Math.abs(gamepad2.left_stick_x));
+                indexer.start(gamepad2.left_stick_x, indexerSlow);
             }
         } else if (isIntaking) {
 //            Log.i("AnimeTeleop", "Intake Mode");
+            indexer.emptyPatternQueue();
             indexer.updateIntakePos();
             if (indexer.hasAllBalls()) {
                 indexer.setLight(1.0);
