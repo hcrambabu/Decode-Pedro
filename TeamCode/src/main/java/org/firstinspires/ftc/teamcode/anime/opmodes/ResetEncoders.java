@@ -37,5 +37,9 @@ public class ResetEncoders  extends OpMode {
     @Override
     public void loop() {
 
+        if (gamepad1.a || gamepad2.a) {
+            telemetry.addData("Shooter light Detected: ", indexer.getShootColorAndDistanceSensor().getLightDetected());
+            telemetry.addData("Intake  light Detected: ", indexer.getIntakeColorAndDistanceSensor().getLightDetected());
+        }
     }
 }

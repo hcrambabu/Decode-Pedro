@@ -16,7 +16,7 @@ import java.util.List;
 
 public abstract class AutoBase extends OpMode {
 
-    private static final double PATH_TIMEOUT = 2.0;
+    private static final double ACTION_TIMEOUT = 7.0;
     private static final double PICKUP_DISTANCE = 30;
 
     protected enum ActionState {
@@ -68,7 +68,6 @@ public abstract class AutoBase extends OpMode {
         this.limelight = robot.getLimelight();
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startPose);
-//        findPattern();
         robot.setFlyWheelShootingVelocity(shootingVelocity);
         robot.getIndexer().setAllBallsTrue();
         buildPaths();
@@ -77,6 +76,7 @@ public abstract class AutoBase extends OpMode {
     @Override
     public void start() {
         opmodeTimer.resetTimer();
+        findPattern();
         setPathState(0);
         setActionState(ActionState.SHOOT);
     }
@@ -127,17 +127,13 @@ public abstract class AutoBase extends OpMode {
     }
 
     public void findPattern() {
-        while (opmodeTimer.getElapsedTimeSeconds() < 5.0) {
-            List<Integer> aprilTagIds = limelight.getAllAprilTagId();
-            for (int aprilTagId : aprilTagIds) {
-                telemetry.addData("Detected AprilTag ID", aprilTagId);
-                if (aprilTagId >= GPP_TAG_ID && aprilTagId <= PPG_TAG_ID) {
-                    pattrenNumber = aprilTagId;
-                    break;
-                }
+        List<Integer> aprilTagIds = limelight.getAllAprilTagId();
+        for (int aprilTagId : aprilTagIds) {
+            telemetry.addData("Detected AprilTag ID", aprilTagId);
+            if (aprilTagId >= GPP_TAG_ID && aprilTagId <= PPG_TAG_ID) {
+                pattrenNumber = aprilTagId;
+                break;
             }
-            idle();
-            updateTelemetry();
         }
     }
 
@@ -151,7 +147,7 @@ public abstract class AutoBase extends OpMode {
         for (int i = 0; i < pickupOrderPoses.length; i++) {
             Pose prevPose = i == 0 ? shootPose : pickupOrderPoses[i - 1];
             pickupOrderPathChains[i] = follower.pathBuilder()
-                    .addPath(new BezierLine(prevPose, pickupOrderPoses[i]))
+                    .addPath(new BezierLine(shootPose, pickupOrderPoses[i]))
                     .setLinearHeadingInterpolation(shootPose.getHeading(), pickupOrderPoses[i].getHeading())
                     .build();
             double pickUpDistance = isRed ? PICKUP_DISTANCE : -PICKUP_DISTANCE;
@@ -177,33 +173,47 @@ public abstract class AutoBase extends OpMode {
             if (i >= pickupOrderPathChains.length) return;
             switch (actionState) {
                 case SHOOT:
-                    if (!follower.isBusy() || pathTimer.getElapsedTimeSeconds() > PATH_TIMEOUT) {
+                    if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
+                        // We are at shoot pose.
+                        // Ideally we started shooting early. Ensure it's on.
                         if(!robot.isShooting()) {
                             robot.startShooting();
-                        } else {
-                            boolean shouldMoveToPickup = !robot.isBusy();
-                            if (shouldMoveToPickup) {
-                                robot.stopShooting();
-                                follower.followPath(pickupOrderPathChains[i], true);
-                                setActionState(ActionState.GO_TO_PICKUP_POSE);
-                            }
+                        }
+                        
+                        // Wait for shot to complete (GreenApple handles the shot sequence)
+                        // But GreenApple states (LAUNCH_BALL) happen automatically if robot.isShooting() is true.
+                        // We just need to wait until we are empty?
+                        // Or check if robot is 'Busy' shooting.
+                        
+                        // Wait until GreenApple says it's done shooting (e.g. going back to IDLE or COLLECT)
+                        // Actually, GreenApple.update() handles "LAUNCH_BALL -> IDLE".
+                        // So if we are in IDLE and isShooting() is true, it might be spin up.
+                        // If we have balls, wait.
+                        
+                        if (!robot.getIndexer().hasBalls()) {
+                             // Done shooting
+                             robot.stopShooting();
+                             // Move to next
+                             follower.followPath(pickupOrderPathChains[i], 0.5, true);
+                             setActionState(ActionState.GO_TO_PICKUP_POSE);
                         }
                     }
                     break;
                 case GO_TO_PICKUP_POSE:
-                    if (!follower.isBusy() || pathTimer.getElapsedTimeSeconds() > PATH_TIMEOUT) {
-                        follower.followPath(pickupEndPathChains[i], true);
+                    if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
+                        follower.followPath(pickupEndPathChains[i],0.5,  true);
                         setActionState(ActionState.PICKUP);
                     }
                     break;
                 case PICKUP:
-                    if (!follower.isBusy() || pathTimer.getElapsedTimeSeconds() > PATH_TIMEOUT) {
-                        follower.followPath(shootPathChains[i], true);
+                    if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
+                        // Start moving to shoot
+                        follower.followPath(shootPathChains[i], 0.5, true);
                         setActionState(ActionState.GO_TO_SHOOT_POSE);
                     }
                     break;
                 case GO_TO_SHOOT_POSE:
-                    if (!follower.isBusy() || pathTimer.getElapsedTimeSeconds() > PATH_TIMEOUT) {
+                    if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
                         setActionState(ActionState.SHOOT);
                         setPathState(pathState + 1);
                     }

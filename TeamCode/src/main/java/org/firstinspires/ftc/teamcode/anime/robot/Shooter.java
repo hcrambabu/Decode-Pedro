@@ -54,6 +54,6 @@ public class Shooter {
     }
 
     public boolean isAtVelocity(double flyWheelVelocity) {
-        return Math.abs(getVelocity() - flyWheelVelocity) < 10;
+        return Math.abs(getVelocity() - flyWheelVelocity) < 100;
     }
 }

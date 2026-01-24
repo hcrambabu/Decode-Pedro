@@ -46,8 +46,8 @@ public class AnimeAutoRedBottom extends AutoBase {
         // Store current robot pose
         PoseStorage.currentPose = follower.getPose();
 
-        // Run intake only during PICKUP state
-        if (actionState == ActionState.PICKUP) {
+        // Run intake during APPROACH and PICKUP
+        if (actionState == ActionState.PICKUP || actionState == ActionState.GO_TO_PICKUP_POSE) {
             if (!robot.isIntaking()) {
                 robot.startIntake();
             }

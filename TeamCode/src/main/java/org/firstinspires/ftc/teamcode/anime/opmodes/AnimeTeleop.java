@@ -169,7 +169,7 @@ public class AnimeTeleop extends OpMode {
 
         if(gamepad2.right_trigger >= 0.2) {
             calculatedVelocity = limelight.getVelocity();
-            Log.i("AnimeTeleop", "calculatedVelocity: " + calculatedVelocity);
+//            Log.i("AnimeTeleop", "calculatedVelocity: " + calculatedVelocity);
             if (calculatedVelocity != -1) {
                 // Target detected - use calculated velocity from limelight
                 useAutoVelocity = true;
@@ -182,22 +182,19 @@ public class AnimeTeleop extends OpMode {
             shooter.setVelocity(0, true);
         }
 
-        lift.start(gamepad2.left_trigger);
+        if (indexer.isReadyToShoot()) {
+            indexer.updateShootingPos();
+            lift.start(1.0);
+        } else {
+            lift.start(gamepad2.left_trigger);
+        }
         intake.start(-gamepad2.right_stick_y);
         if(gamepad2.xWasPressed()) {
             indexerSlow = !indexerSlow;
         }
 
-        if(gamepad2.b) {
-            indexer.updateShootingPos();
-            if(gamepad2BWasPressed != gamepad2.b && gamepad2.b) {
-                indexer.alignToBestBall();
-            }
-            if (!indexer.isBusy(false)) {
-                lift.start(1.0);
-            } else {
-                lift.stop();
-            }
+        if(gamepad2BWasPressed != gamepad2.b && gamepad2.b) {
+            indexer.alignToBestBall();
         }
         gamepad2BWasPressed = gamepad2.b;
 
