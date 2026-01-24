@@ -37,13 +37,13 @@ public class GreenApple {
     // Track if intake is manually running
     private boolean intakeRunning = false;
 
-    public GreenApple(HardwareMap hardwareMap, Telemetry telemetry, boolean resetIndexers) {
+    public GreenApple(HardwareMap hardwareMap, Telemetry telemetry, int limelightPipeline, boolean resetIndexers) {
         this.telemetry = telemetry;
         shooter = new Shooter(hardwareMap, telemetry);
         lift = new Lift(hardwareMap, telemetry);
         intake = new Intake(hardwareMap, telemetry);
         indexer = new Indexer(hardwareMap, telemetry, resetIndexers);
-        limelight = new Limelight(hardwareMap, telemetry);
+        limelight = new Limelight(hardwareMap, limelightPipeline, telemetry);
         stateTimer = new Timer();
     }
 

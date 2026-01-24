@@ -58,7 +58,7 @@ public class AnimeTeleop extends OpMode {
         follower.setStartingPose(PoseStorage.currentPose);
         follower.update();
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
-        robot = new GreenApple(hardwareMap, telemetry, false);
+        robot = new GreenApple(hardwareMap, telemetry, 9,false);
 
 
         shooter = robot.getShooter();

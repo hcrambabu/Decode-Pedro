@@ -20,9 +20,9 @@ public class Limelight {
     private Limelight3A limelight;
     private IMU imu;
 
-    public Limelight(HardwareMap hardwareMap, Telemetry telemetry) {
+    public Limelight(HardwareMap hardwareMap, int pipeline, Telemetry telemetry) {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        limelight.pipelineSwitch(9);
+        limelight.pipelineSwitch(pipeline);
         limelight.start();
 
         imu = hardwareMap.get(IMU.class, "imu");
@@ -31,6 +31,12 @@ public class Limelight {
                 RevHubOrientationOnRobot.UsbFacingDirection.UP
         );
         imu.initialize(new IMU.Parameters(revHubOrientationOnRobot));
+    }
+
+    public void changePipeline(int pipeline) {
+        limelight.stop();
+        limelight.pipelineSwitch(pipeline);
+        limelight.start();
     }
 
     public double getDistance(double ta) {
@@ -89,7 +95,7 @@ public class Limelight {
             if (result != null && result.isValid()) {
                 if (!result.getFiducialResults().isEmpty()) {
                     int id = result.getFiducialResults().get(0).getFiducialId();
-                    Log.i("Limelight", "Found AprilTagId: " + id);
+                    Log.i("Limelight", "1. Found AprilTagId: " + id);
                     return id;
                 }
             }
@@ -105,11 +111,12 @@ public class Limelight {
             YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
             limelight.updateRobotOrientation(orientation.getYaw());
             LLResult result = limelight.getLatestResult();
+
             if (result != null && result.isValid()) {
                 if (!result.getFiducialResults().isEmpty()) {
                     int id = result.getFiducialResults().get(0).getFiducialId();
                     resultList.add(id);
-                    Log.i("Limelight", "Found AprilTagId: " + id);
+                    Log.i("Limelight", "2. Found AprilTagId: " + id);
                 }
             }
         } catch (Exception e) {

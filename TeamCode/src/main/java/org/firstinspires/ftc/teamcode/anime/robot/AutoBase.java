@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.anime.robot;
 
 import static org.firstinspires.ftc.teamcode.anime.robot.PoseStorage.pattrenNumber;
 
+import android.util.Log;
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -59,12 +61,13 @@ public abstract class AutoBase extends OpMode {
 
     @Override
     public void init() {
+        Log.i("AutoBase", "Autonomous initializing");
         assignPosesToVariables();
         pathTimer = new Timer();
         actionTimer = new Timer();
         opmodeTimer = new Timer();
         opmodeTimer.resetTimer();
-        this.robot = new GreenApple(hardwareMap, telemetry, true);
+        this.robot = new GreenApple(hardwareMap, telemetry, 8, true);
         this.limelight = robot.getLimelight();
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startPose);
@@ -75,8 +78,10 @@ public abstract class AutoBase extends OpMode {
 
     @Override
     public void start() {
+        Log.i("AutoBase", "Autonomous started");
         opmodeTimer.resetTimer();
         findPattern();
+        limelight.changePipeline(9); // Switch to driver cam after finding pattern
         setPathState(0);
         setActionState(ActionState.SHOOT);
         robot.startShooting();
@@ -128,14 +133,23 @@ public abstract class AutoBase extends OpMode {
     }
 
     public void findPattern() {
-        List<Integer> aprilTagIds = limelight.getAllAprilTagId();
-        for (int aprilTagId : aprilTagIds) {
-            telemetry.addData("Detected AprilTag ID", aprilTagId);
-            if (aprilTagId >= GPP_TAG_ID && aprilTagId <= PPG_TAG_ID) {
-                pattrenNumber = aprilTagId;
+        for(int i = 0; i < 5; i++) {
+            boolean foundTag = false;
+            List<Integer> aprilTagIds = limelight.getAllAprilTagId();
+            for (int aprilTagId : aprilTagIds) {
+                telemetry.addData("Detected AprilTag ID", aprilTagId);
+                if (aprilTagId >= GPP_TAG_ID && aprilTagId <= PPG_TAG_ID) {
+                    pattrenNumber = aprilTagId;
+                    foundTag = true;
+                    break;
+                }
+            }
+            if (foundTag) {
                 break;
             }
+            idle();
         }
+        telemetry.addData("Detected AprilTag ID: ", pattrenNumber);
     }
 
     public void buildPaths() {
