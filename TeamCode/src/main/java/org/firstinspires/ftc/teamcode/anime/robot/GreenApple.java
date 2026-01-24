@@ -57,6 +57,10 @@ public class GreenApple {
         flyWheelVelocity = velocity;
     }
 
+    public void startShooter() {
+        shooter.setVelocity(flyWheelVelocity, true);
+    }
+
     public void setRobotState(RobotState state) {
         robotState = state;
         stateTimer.resetTimer();
@@ -120,7 +124,7 @@ public class GreenApple {
                             setRobotState(RobotState.SPIN_FLY_WHEEL);
                         } else {
                             // Empty? Go to intake.
-                            shooter.setVelocity(0, true);
+                            //shooter.setVelocity(0, true); // no stop shooter here to allow spin-down, again sping taking too long
                             lift.stop();
                             intake.start(-1.0); // Corrected: Negative for Intake
                             intakeRunning = true;

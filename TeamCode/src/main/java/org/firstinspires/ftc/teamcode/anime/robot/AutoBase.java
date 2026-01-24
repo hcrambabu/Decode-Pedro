@@ -17,7 +17,7 @@ import java.util.List;
 public abstract class AutoBase extends OpMode {
 
     private static final double ACTION_TIMEOUT = 7.0;
-    private static final double PICKUP_DISTANCE = 30;
+    private static final double PICKUP_DISTANCE = 45;
 
     protected enum ActionState {
         SHOOT,
@@ -79,6 +79,7 @@ public abstract class AutoBase extends OpMode {
         findPattern();
         setPathState(0);
         setActionState(ActionState.SHOOT);
+        robot.startShooting();
     }
 
     @Override

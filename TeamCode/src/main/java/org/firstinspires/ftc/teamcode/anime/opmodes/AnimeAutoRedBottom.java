@@ -20,16 +20,13 @@ public class AnimeAutoRedBottom extends AutoBase {
         shootPose = new Pose(96, 14, Math.toRadians(60));
 
         // Optional end pose
-        //endPose = new Pose(96, 96, Math.toRadians(45));
+        endPose = new Pose(96, 96, Math.toRadians(45));
 
         // Pickup poses in order (match visualizer paths)
         pickupOrderPoses = new Pose[]{
-                new Pose(102, 36, Math.toRadians(0)),   // Path 2
-                new Pose(126, 36, Math.toRadians(0)),   // Path 3
-                new Pose(102, 60, Math.toRadians(0)),   // Path 5
-                new Pose(126, 60, Math.toRadians(0)),   // Path 6
-                new Pose(102, 84, Math.toRadians(0)),   // Path 8
-                new Pose(126, 84, Math.toRadians(0))    // Path 9
+                new Pose(100, 35.5, Math.toRadians(0)),
+                new Pose(100, 59.5, Math.toRadians(0)),
+                new Pose(100, 83.5, Math.toRadians(0)),
         };
 
         isRed = true;               // Team color

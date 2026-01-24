@@ -383,7 +383,7 @@ public class Indexer {
         if (!patternQueue.isEmpty()) {
             BallColor target = patternQueue.peek();
             // If target is UNKNOWN, any ball is fine. If specific, must match.
-            if (target != BallColor.EMPTY && ballColors[currentSlot] != target) {
+            if (target != BallColor.EMPTY && ballColors[currentSlot] != target && hasColor(target)) {
                 return false;
             }
         } else {
@@ -393,7 +393,16 @@ public class Indexer {
         
         return true;
     }
-    
+
+    private boolean hasColor(BallColor target) {
+        for (BallColor c : ballColors) {
+            if (c == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Telemetry Helper
     public String getPatternStatus() {
         if (patternQueue.isEmpty()) return "Queue: [] (Done)";
