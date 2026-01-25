@@ -18,7 +18,7 @@ import java.util.List;
 
 public abstract class AutoBase extends OpMode {
 
-    private static final double ACTION_TIMEOUT = 7.0;
+    private static final double ACTION_TIMEOUT = 4.0;
     private static final double PICKUP_DISTANCE = 45;
 
     protected enum ActionState {
@@ -26,6 +26,7 @@ public abstract class AutoBase extends OpMode {
         GO_TO_PICKUP_POSE,
         PICKUP,
         GO_TO_SHOOT_POSE,
+        GO_TO_END,
     }
 
 
@@ -49,6 +50,7 @@ public abstract class AutoBase extends OpMode {
     private PathChain[] pickupOrderPathChains;
     private PathChain[] shootPathChains;
     private PathChain[] pickupEndPathChains;
+    private PathChain endPathChain;
 
     protected Follower follower;
     protected Timer pathTimer, actionTimer, opmodeTimer;
@@ -87,17 +89,17 @@ public abstract class AutoBase extends OpMode {
         robot.startShooting();
     }
 
-    @Override
-    public void loop() {
-        // These loop the movements of the robot, these must be called continuously in order to work
-        follower.update();
-        autonomousPathUpdate();
-        robot.update();
-        PoseStorage.currentPose = follower.getPose();
-
-        // Feedback to Driver Hub for debugging
-        updateTelemetry();
-    }
+//    @Override
+//    public void loop() {
+//        // These loop the movements of the robot, these must be called continuously in order to work
+//        follower.update();
+//        autonomousPathUpdate();
+//        robot.update();
+//        PoseStorage.currentPose = follower.getPose();
+//
+//        // Feedback to Driver Hub for debugging
+//        updateTelemetry();
+//    }
 
 
     public final void idle() {
@@ -119,6 +121,7 @@ public abstract class AutoBase extends OpMode {
         telemetry.addData("Action State", actionState.name());
         telemetry.addData("Action Time", actionTimer.getElapsedTimeSeconds());
         telemetry.addData("Robot Pose", follower.getPose().toString());
+        telemetry.addData("Follower Busy?", follower.isBusy());
         telemetry.update();
     }
 
@@ -176,6 +179,12 @@ public abstract class AutoBase extends OpMode {
                     .setLinearHeadingInterpolation(endPose.getHeading(), shootPose.getHeading())
                     .build();
         }
+        
+        // Build path to end pose (from shoot pose)
+        endPathChain = follower.pathBuilder()
+                .addPath(new BezierLine(shootPose, endPose))
+                .setLinearHeadingInterpolation(shootPose.getHeading(), endPose.getHeading())
+                .build();
     }
 
     public void autonomousPathUpdate() {
@@ -185,13 +194,15 @@ public abstract class AutoBase extends OpMode {
             return;
         } else {
             int i = pathState - 1;
-            if (i >= pickupOrderPathChains.length) return;
             switch (actionState) {
                 case SHOOT:
+//                    Log.i("AutoBase", "0. In SHOOT, isBusy: "+ follower.isBusy());
                     if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
+//                        Log.i("AutoBase", "1. In SHOOT, isBusy: "+ follower.isBusy());
                         // We are at shoot pose.
                         // Ideally we started shooting early. Ensure it's on.
                         if(!robot.isShooting()) {
+//                            Log.i("AutoBase", "2. In SHOOT, isBusy: "+ follower.isBusy());
                             robot.startShooting();
                         }
                         
@@ -209,21 +220,25 @@ public abstract class AutoBase extends OpMode {
                              // Done shooting
                              robot.stopShooting();
                              // Move to next
-                             follower.followPath(pickupOrderPathChains[i], 0.5, true);
-                             setActionState(ActionState.GO_TO_PICKUP_POSE);
+                            if (i >= pickupOrderPathChains.length)  {
+                                setActionState(ActionState.GO_TO_END);
+                            } else {
+                                follower.followPath(pickupOrderPathChains[i], .9, true);
+                                setActionState(ActionState.GO_TO_PICKUP_POSE);
+                            }
                         }
                     }
                     break;
                 case GO_TO_PICKUP_POSE:
                     if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
-                        follower.followPath(pickupEndPathChains[i],0.5,  true);
+                        follower.followPath(pickupEndPathChains[i],0.55,  true);
                         setActionState(ActionState.PICKUP);
                     }
                     break;
                 case PICKUP:
                     if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
                         // Start moving to shoot
-                        follower.followPath(shootPathChains[i], 0.5, true);
+                        follower.followPath(shootPathChains[i], .9, true);
                         setActionState(ActionState.GO_TO_SHOOT_POSE);
                     }
                     break;
@@ -232,6 +247,17 @@ public abstract class AutoBase extends OpMode {
                         setActionState(ActionState.SHOOT);
                         setPathState(pathState + 1);
                     }
+                    break;
+                case GO_TO_END:
+                    // Stop shooting when we enter this state
+                    robot.stopShooting();
+                    
+                    // If follower is not busy, we haven't started the path yet - start it
+                    if (!follower.isBusy()) {
+                        follower.followPath(endPathChain, 1, true);
+                    }
+                    // If follower is busy, we're already following the path - just wait
+                    // When path completes, follower.isBusy() will be false but we're done
                     break;
             }
         }

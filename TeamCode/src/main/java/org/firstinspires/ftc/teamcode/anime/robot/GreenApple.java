@@ -71,12 +71,13 @@ public class GreenApple {
         telemetry.addData("Robot State Timer: ", stateTimer.getElapsedTimeSeconds());
         telemetry.addData("Balls", Arrays.toString(indexer.getBallStatus()));
         telemetry.addData("Intake Running?", intakeRunning);
+        telemetry.addData("Is Shooting?", shooting);
     }
 
     public void update() {
         switch (robotState) {
             case IDLE:
-//                Log.i("GreenApple", "In IDLE state");
+//                Log.i("GreenApple", "In IDLE state, hasBalls: " + indexer.hasAllBalls() + ", shooting: "+ shooting);
                 if (indexer.hasBalls() && shooting) {
                     shooter.setVelocity(flyWheelVelocity, true);
                     indexer.alignToBestBall();

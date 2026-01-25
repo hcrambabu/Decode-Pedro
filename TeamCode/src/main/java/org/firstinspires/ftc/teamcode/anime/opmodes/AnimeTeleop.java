@@ -51,6 +51,9 @@ public class AnimeTeleop extends OpMode {
     private boolean dpadRightWasPressed = false;
     private boolean gamepad2BWasPressed = false;
     private final double ALIGN_KP = 0.03;
+    
+    // Store last detected velocity to keep flywheel running at consistent RPM
+    private double lastDetectedVelocity = 0.0;
 
     @Override
     public void init() {
@@ -167,18 +170,25 @@ public class AnimeTeleop extends OpMode {
         boolean useAutoVelocity = false;
         double calculatedVelocity = 0.0f;
 
-        if(gamepad2.right_trigger >= 0.2) {
-            calculatedVelocity = limelight.getVelocity();
-//            Log.i("AnimeTeleop", "calculatedVelocity: " + calculatedVelocity);
-            if (calculatedVelocity != -1) {
-                // Target detected - use calculated velocity from limelight
-                useAutoVelocity = true;
-                shooter.setVelocity(calculatedVelocity, true);
-            } else {
-                // Target not detected - don't rev the shooter
-                shooter.setVelocity(Shooter.MAX_VELOCITY * gamepad2.right_trigger, true);
-            }
+        // Continuously check for AprilTag target detection
+        // When target is detected, calculate and update the velocity using the equation
+        calculatedVelocity = limelight.getVelocity();
+        if (calculatedVelocity != -1) {
+            // Target detected - calculate and store the velocity from limelight equation
+            useAutoVelocity = true;
+            lastDetectedVelocity = calculatedVelocity; // Store the detected velocity
+        }
+        
+        // Always run flywheel at last detected RPM (maintains consistent RPM)
+        // This keeps the flywheel running at the same speed even when target is not visible
+        if (lastDetectedVelocity > 0) {
+            shooter.setVelocity(lastDetectedVelocity, true);
+            useAutoVelocity = true; // Show as auto mode if we have a stored velocity
+        } else if (gamepad2.right_trigger >= 0.2) {
+            // No velocity detected yet, but trigger pressed - use manual preset
+            shooter.setVelocity(Shooter.MAX_VELOCITY * gamepad2.right_trigger, true);
         } else {
+            // No velocity stored and trigger not pressed - keep stopped
             shooter.setVelocity(0, true);
         }
 
@@ -198,9 +208,9 @@ public class AnimeTeleop extends OpMode {
         }
         gamepad2BWasPressed = gamepad2.b;
 
-        boolean isShooting = gamepad2.right_trigger >= 0.2 && gamepad2.left_trigger > 0.2;
-        boolean isIntaking = Math.abs(gamepad2.right_stick_y) > 0.2;
-        if (isShooting) {
+        boolean isShooting = gamepad2.left_trigger > 0.4;
+        boolean isIntaking = Math.abs(gamepad2.right_stick_y) > 0.3;
+        if (isShooting && !isIntaking) {
 //            Log.i("AnimeTeleop", "Shooting Mode");
             indexer.updateShootingPos();
             if(dpadRightWasPressed != gamepad2.dpad_right && gamepad2.dpad_right) {
@@ -210,7 +220,7 @@ public class AnimeTeleop extends OpMode {
             } else {
                 indexer.start(gamepad2.left_stick_x, indexerSlow);
             }
-        } else if (isIntaking) {
+        } else if (isIntaking && !isShooting) {
 //            Log.i("AnimeTeleop", "Intake Mode");
             indexer.emptyPatternQueue();
             indexer.updateIntakePos();

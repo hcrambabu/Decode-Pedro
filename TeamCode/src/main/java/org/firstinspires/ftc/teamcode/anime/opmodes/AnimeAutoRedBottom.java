@@ -17,20 +17,24 @@ public class AnimeAutoRedBottom extends AutoBase {
         startPose = new Pose(96, 8, Math.toRadians(90));
 
         // Shoot pose (same spot every time)
-        shootPose = new Pose(96, 14, Math.toRadians(60));
+        shootPose = new Pose(96, 14, Math.toRadians(70));
 
         // Optional end pose
-        endPose = new Pose(96, 96, Math.toRadians(45));
+        endPose = new Pose(135, 10, Math.toRadians(90));
 
         // Pickup poses in order (match visualizer paths)
         pickupOrderPoses = new Pose[]{
-                new Pose(100, 35.5, Math.toRadians(0)),
-                new Pose(100, 59.5, Math.toRadians(0)),
-                new Pose(100, 83.5, Math.toRadians(0)),
+                new Pose(100, 40, Math.toRadians(0)),
+                new Pose(100, 60, Math.toRadians(0)),
+//                new Pose(100, 83.5, Math.toRadians(0)),
         };
 
         isRed = true;               // Team color
-        shootingVelocity = 1700;    // Flywheel velocity
+        if(pathState == 1){
+            shootingVelocity = 1550;
+        }else {
+            shootingVelocity = 1660;    // Flywheel velocity
+        }
     }
 
     @Override

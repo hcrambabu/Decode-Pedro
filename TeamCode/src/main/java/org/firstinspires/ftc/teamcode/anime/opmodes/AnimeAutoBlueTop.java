@@ -12,23 +12,23 @@ import org.firstinspires.ftc.teamcode.anime.robot.PoseStorage;
 
 
 @Configurable
-@Autonomous(name="Anime: Auto Red Top", group="Anime")
-public class AnimeAutoRedTop extends AutoBase {
+@Autonomous(name="Anime: Auto Blue Top", group="Anime")
+public class AnimeAutoBlueTop extends AutoBase {
 
 
     @Override
     public void assignPosesToVariables() {
-        startPose = new Pose(96, 136, Math.toRadians(270));
-        endPose = new Pose(50, 33, Math.toRadians(90));
-        shootPose = new Pose(84, 84, Math.toRadians(420));
+        startPose = new Pose(56, 136, Math.toRadians(270));
+        endPose = new Pose(5, 136, Math.toRadians(270));
+        shootPose = new Pose(59, 84, Math.toRadians(120));
 
 
         pickupOrderPoses = new Pose[]{
-                new Pose(100, 84, Math.toRadians(0)),
-                new Pose(100, 59.5, Math.toRadians(0)),
-                new Pose(100, 35.5, Math.toRadians(0))
+                new Pose(44, 82, Math.toRadians(180)),
+                new Pose(44, 60, Math.toRadians(180)),
+                new Pose(44, 36, Math.toRadians(180))
         };
-        isRed = true;
+        isRed = false;
         shootingVelocity = 1320;
     }
 
