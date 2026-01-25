@@ -18,9 +18,15 @@ import java.util.List;
 
 public abstract class AutoBase extends OpMode {
 
-    private static final double ACTION_TIMEOUT = 4.0;
+    private static final double ACTION_TIMEOUT = 2.0;
     private static final double PICKUP_DISTANCE = 45;
     private static final double INTAKE_TIME = 3.0;
+    private static final double ALIGN_KP = 0.03;
+    private static final double ALIGN_THRESHOLD = 1.0; // degrees - only align if offset is greater than this
+    private static final double SHOOTING_MAX_TIME = 8.0; // Maximum time to spend in SHOOT state before forcing transition
+    private static final double AUTO_TIME_LIMIT = 30.0; // Total autonomous time limit
+    private static final double PARK_TIME_REMAINING = 3.0; // Start parking when this much time remains
+    private boolean isAlignedForShooting = false;
     protected enum ActionState {
         SHOOT,
         GO_TO_PICKUP_POSE,
@@ -43,6 +49,7 @@ public abstract class AutoBase extends OpMode {
     protected Pose shootPose; // Scoring Pose of our robot. It is facing the goal at a 115 degree angle.
     protected Pose[] pickupOrderPoses; // Order of poses to pick up balls.
     protected boolean isRed = true;
+    protected double alignmentOffset = 0.0; // Offset in degrees for alignment (negative = left, positive = right)
 
     protected double shootingVelocity;
 
@@ -58,6 +65,8 @@ public abstract class AutoBase extends OpMode {
     protected ActionState actionState;
     protected Limelight limelight;
     protected GreenApple robot;
+    private int shotsFired = 0; // Track number of shots fired at current shooting position
+    private boolean wasShootingPositionEmpty = false; // Track previous state of shooting position
 
     public abstract void assignPosesToVariables();
 
@@ -188,6 +197,16 @@ public abstract class AutoBase extends OpMode {
     }
 
     public void autonomousPathUpdate() {
+        // Check if we need to force park in the last 3 seconds
+        double timeRemaining = AUTO_TIME_LIMIT - opmodeTimer.getElapsedTimeSeconds();
+        if (timeRemaining <= PARK_TIME_REMAINING && actionState != ActionState.GO_TO_END) {
+            // Force transition to end position
+            robot.stopShooting();
+            robot.stopIntake();
+            isAlignedForShooting = false;
+            setActionState(ActionState.GO_TO_END);
+        }
+        
         if (pathState == 0) {
             follower.followPath(shootPreload);
             setPathState(pathState + 1);
@@ -196,36 +215,79 @@ public abstract class AutoBase extends OpMode {
             int i = pathState - 1;
             switch (actionState) {
                 case SHOOT:
-//                    Log.i("AutoBase", "0. In SHOOT, isBusy: "+ follower.isBusy());
-                    if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
-//                        Log.i("AutoBase", "1. In SHOOT, isBusy: "+ follower.isBusy());
-                        // We are at shoot pose.
-                        // Ideally we started shooting early. Ensure it's on.
-                        if(!robot.isShooting()) {
-//                            Log.i("AutoBase", "2. In SHOOT, isBusy: "+ follower.isBusy());
+                    // Once we reach the shoot pose, switch to teleop drive for rotation control
+                    if (!follower.isBusy() && !isAlignedForShooting) {
+                        follower.startTeleopDrive();
+                        isAlignedForShooting = true; // Mark that we've switched to teleop mode
+                        shotsFired = 0; // Reset shot counter when entering shoot position
+                        wasShootingPositionEmpty = false; // Reset tracking
+                    }
+                    
+                    // Always run alignment and shooting logic (not dependent on follower state)
+                    // Auto-align to goal AprilTag - continuously adjust heading
+                    int goalTagId = isRed ? RED_GOAL_TAG_ID : BLUE_GOAL_TAG_ID;
+                    Double tx = limelight.getHorizontalOffset(goalTagId);
+                    if (tx != null) {
+                        // Apply alignment offset (for bottom autonomous: -5 degrees = 5 degrees to the left)
+                        double adjustedTx = tx + alignmentOffset;
+                        if (Math.abs(adjustedTx) > ALIGN_THRESHOLD) {
+                            double turnPower = -adjustedTx * ALIGN_KP;
+                            // Clamp turn power for smoother rotation
+                            turnPower = Math.max(-0.5, Math.min(0.5, turnPower));
+                            follower.setTeleOpDrive(0, 0, turnPower, true);
+                        } else {
+                            // Aligned - stop rotation
+                            follower.setTeleOpDrive(0, 0, 0, true);
+                        }
+                    }
+                    
+                    // Start shooting once we're at pose (follower not busy) or after timeout
+                    // This ensures shooting starts even if alignment fails
+                    if ((!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT)) {
+                        if (!robot.isShooting()) {
                             robot.startShooting();
                         }
-                        
-                        // Wait for shot to complete (GreenApple handles the shot sequence)
-                        // But GreenApple states (LAUNCH_BALL) happen automatically if robot.isShooting() is true.
-                        // We just need to wait until we are empty?
-                        // Or check if robot is 'Busy' shooting.
-                        
-                        // Wait until GreenApple says it's done shooting (e.g. going back to IDLE or COLLECT)
-                        // Actually, GreenApple.update() handles "LAUNCH_BALL -> IDLE".
-                        // So if we are in IDLE and isShooting() is true, it might be spin up.
-                        // If we have balls, wait.
-                        
-                        if (!robot.getIndexer().hasBalls()) {
-                             // Done shooting
-                             robot.stopShooting();
-                             // Move to next
-                            if (i >= pickupOrderPathChains.length)  {
-                                setActionState(ActionState.GO_TO_END);
-                            } else {
-                                follower.followPath(pickupOrderPathChains[i], .9, true);
-                                setActionState(ActionState.GO_TO_PICKUP_POSE);
-                            }
+                    }
+                    
+                    // Track shots by detecting when shooting position becomes empty (ball was shot)
+                    // This detects the transition from having a ball to empty, which indicates a shot
+                    boolean isShootingPositionEmpty = !robot.getIndexer().hasBallInShootingPosition();
+                    if (!wasShootingPositionEmpty && isShootingPositionEmpty && robot.isShooting()) {
+                        // Ball was shot - increment counter (only if we were shooting)
+                        shotsFired++;
+                    }
+                    wasShootingPositionEmpty = isShootingPositionEmpty;
+                    
+                    // Check if we've shot 3 times or enough time has passed for 3 shots
+                    double elapsedTime = actionTimer.getElapsedTimeSeconds();
+                    double timePerShot = 2.0; // Estimated time per shot (spin up + align + launch)
+                    double minimumTimeFor3Shots = timePerShot * 3; // Minimum time needed for 3 shots
+                    boolean enoughTimeFor3Shots = elapsedTime >= minimumTimeFor3Shots;
+                    boolean forceTransition = elapsedTime > SHOOTING_MAX_TIME; // Safety timeout
+                    
+                    // Move after 3 shots are detected, OR after enough time has passed (assume 3 shots completed)
+                    if (shotsFired >= 3 || (enoughTimeFor3Shots && shotsFired >= 2)) {
+                        // Done shooting 3 balls - move immediately
+                        robot.stopShooting();
+                        isAlignedForShooting = false; // Reset for next time
+                        shotsFired = 0; // Reset counter
+                        // Move to next
+                        if (i >= pickupOrderPathChains.length) {
+                            setActionState(ActionState.GO_TO_END);
+                        } else {
+                            follower.followPath(pickupOrderPathChains[i], .9, true);
+                            setActionState(ActionState.GO_TO_PICKUP_POSE);
+                        }
+                    } else if (forceTransition) {
+                        // Safety: force transition if stuck too long (but still try to stop shooting)
+                        robot.stopShooting();
+                        isAlignedForShooting = false;
+                        shotsFired = 0; // Reset counter
+                        if (i >= pickupOrderPathChains.length) {
+                            setActionState(ActionState.GO_TO_END);
+                        } else {
+                            follower.followPath(pickupOrderPathChains[i], .9, true);
+                            setActionState(ActionState.GO_TO_PICKUP_POSE);
                         }
                     }
                     break;
@@ -238,7 +300,7 @@ public abstract class AutoBase extends OpMode {
                 case PICKUP:
                     if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
                         // Start moving to shoot
-                        follower.followPath(shootPathChains[i], .9, true);
+                        follower.followPath(shootPathChains[i], 1, true);
                         setActionState(ActionState.GO_TO_SHOOT_POSE);
                     }
                     break;

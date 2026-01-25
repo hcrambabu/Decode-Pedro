@@ -19,7 +19,7 @@ public class AnimeAutoRedTop extends AutoBase {
     @Override
     public void assignPosesToVariables() {
         startPose = new Pose(96, 136, Math.toRadians(270));
-        endPose = new Pose(50, 33, Math.toRadians(90));
+        endPose = new Pose(90, 136, Math.toRadians(90));
         shootPose = new Pose(84, 84, Math.toRadians(420));
 
 
@@ -29,7 +29,7 @@ public class AnimeAutoRedTop extends AutoBase {
                 new Pose(100, 35.5, Math.toRadians(0))
         };
         isRed = true;
-        shootingVelocity = 1320;
+        shootingVelocity = 1330;
     }
 
     @Override

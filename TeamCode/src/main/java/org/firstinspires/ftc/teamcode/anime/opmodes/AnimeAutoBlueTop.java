@@ -27,7 +27,7 @@ public class AnimeAutoBlueTop extends AutoBase {
 //                new Pose(44, 36, Math.toRadians(180))
         };
         isRed = false;
-        shootingVelocity = 1320;
+        shootingVelocity = 1330;
     }
 
     @Override

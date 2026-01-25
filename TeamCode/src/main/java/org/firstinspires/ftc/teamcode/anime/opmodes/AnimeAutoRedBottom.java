@@ -30,11 +30,9 @@ public class AnimeAutoRedBottom extends AutoBase {
         };
 
         isRed = true;               // Team color
-        if(pathState == 1){
-            shootingVelocity = 1550;
-        }else {
-            shootingVelocity = 1660;    // Flywheel velocity
-        }
+        alignmentOffset = 0;     // Align 5 degrees to the left for bottom autonomous
+        shootingVelocity = 1600;    // Flywheel velocity
+
     }
 
     @Override

@@ -22,23 +22,24 @@ public class AnimeAutoBlueBottom extends AutoBase {
 
 
         // Shoot pose (same spot every time)
-        shootPose = new Pose(56, 14, Math.toRadians(110));
+        shootPose = new Pose(56, 14, Math.toRadians(115));
 
 
         // Optional end pose
-        endPose = new Pose(10, 10, Math.toRadians(90));
+        endPose = new Pose(50, 10, Math.toRadians(90));
 
 
         // Pickup poses in order (match visualizer paths)
         pickupOrderPoses = new Pose[]{
                 new Pose(40, 35.5, Math.toRadians(180)),
-                new Pose(40, 59.5, Math.toRadians(180)),
+                new Pose(40, 61.5, Math.toRadians(180)),
                 new Pose(40, 83.5, Math.toRadians(180)),
         };
 
 
         isRed = false;              // Team color (blue)
-        shootingVelocity = 1660;    // Flywheel velocity
+        alignmentOffset = 4;     // Align 5 degrees to the left for bottom autonomous
+        shootingVelocity = 1670;    // Flywheel velocity
     }
 
 
