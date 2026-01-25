@@ -20,7 +20,7 @@ public abstract class AutoBase extends OpMode {
 
     private static final double ACTION_TIMEOUT = 4.0;
     private static final double PICKUP_DISTANCE = 45;
-
+    private static final double INTAKE_TIME = 3.0;
     protected enum ActionState {
         SHOOT,
         GO_TO_PICKUP_POSE,
@@ -231,7 +231,7 @@ public abstract class AutoBase extends OpMode {
                     break;
                 case GO_TO_PICKUP_POSE:
                     if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
-                        follower.followPath(pickupEndPathChains[i],0.55,  true);
+                        follower.followPath(pickupEndPathChains[i],0.5,  true);
                         setActionState(ActionState.PICKUP);
                     }
                     break;
@@ -243,6 +243,12 @@ public abstract class AutoBase extends OpMode {
                     }
                     break;
                 case GO_TO_SHOOT_POSE:
+                    if (actionTimer.getElapsedTimeSeconds() < INTAKE_TIME) {
+                        robot.startIntake();
+                    } else {
+                        robot.stopIntake();
+
+                    }
                     if (!follower.isBusy() || actionTimer.getElapsedTimeSeconds() > ACTION_TIMEOUT) {
                         setActionState(ActionState.SHOOT);
                         setPathState(pathState + 1);

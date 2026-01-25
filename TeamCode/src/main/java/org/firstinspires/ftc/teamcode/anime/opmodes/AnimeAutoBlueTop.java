@@ -20,13 +20,11 @@ public class AnimeAutoBlueTop extends AutoBase {
     public void assignPosesToVariables() {
         startPose = new Pose(56, 136, Math.toRadians(270));
         endPose = new Pose(5, 136, Math.toRadians(270));
-        shootPose = new Pose(59, 84, Math.toRadians(120));
-
-
+        shootPose = new Pose(59, 84, Math.toRadians(110));
         pickupOrderPoses = new Pose[]{
-                new Pose(44, 82, Math.toRadians(180)),
+                new Pose(44, 85, Math.toRadians(180)),
                 new Pose(44, 60, Math.toRadians(180)),
-                new Pose(44, 36, Math.toRadians(180))
+//                new Pose(44, 36, Math.toRadians(180))
         };
         isRed = false;
         shootingVelocity = 1320;
